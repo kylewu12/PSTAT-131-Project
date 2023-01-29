@@ -89,7 +89,7 @@ We can see that our data does not include any missing data, so that is not somet
 
 When looking at information about the original data set, I also noticed that `time` indicated either the number of days until the patients died, or the number of days until the patient was censored, which in this case simply means that they did not die. Due to this, I have decided that this information would not only be hard to interpret, it would also not be relevant to whether the patient actually died of heart failure or not so will elect to remove that from the data set I will use for the machine learning models.
 ```{r}
-
+s
 ```
 
 
