@@ -1,34 +1,101 @@
 ---
-title: "PSTAT 131 Final Project"
+title: "Predicting Instances of Death Caused by Heart Failure"
+subtitle: "Using Machine Learning to predict death caused by heart failure using patient health data"
 author: "Kyle Wu"
-date: "2023-01-24"
+date: "UCSB Winter 2023"
+bibliography: references.bib
 output:
   html_document:
     toc: true
     toc_float: true
     code_folding: show
+
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The goal of this project is to create a machine learning model that can successfully predict whether a patient will die due to heart failure based off of some patient history and vital signs.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+### What is Heart Failure
 
-```{r cars}
-summary(cars)
+Although heart failure sounds like the heart may have stopped, this is not the case. Heart failure, which is also known as congestive heart failure is a serious, incurable condition where the heart does not work properly and fails to pump blood sufficiently throughout the body for its needs. Heart failure may occur of the heart can't fill up with enough blood or if the heart is simply too weak to properly pump.
+
+According to the Center for Disease Control and Prevention, more than 6 million adults in the United States suffer from heart failure.
+
+According to the National Heart, Lung, and Blood Institute (NHLBI), "Heart failure may not cause symptoms right away. But eventually, you may feel tired and short of breath and notice fluid buildup in your lower body, around your stomach, or your neck." Heart failure can also eventually cause damage to other organs such as the liver or kidneys and lead to other conditions such as pulmonary hypertension, heart valve disease, and sudden cardiac arrest.
+
+Although heart disease is incurable, the Mayo Clinic states that "Proper treatment can improve the signs and symptoms of heart failure and may help some people live longer," and that "Lifestyle changes - such as losing weight, exercising, and managing stress - can improve your quality of life."
+
+### Why Predict Death by Heart Failure
+
+Although heart failure may be incurable, it could still be beneficial for medical professionals to predict whether a patient may develop and potentially die from heart failure. For example, if a doctor can determine with high probability that a patient may develop heart failure later in life, they may be able to inform the patient so that they can make lifestyle changes early enough to prevent the most significant symptoms. 
+
+Additionally, although the body initially tries to mask the problem of heart failure through various mechanisms such as enlarging the heart, developing more muscle mass, or pumping faster, these solutions are all temporary and in these cases, heart failure will simply progress until the onset of more serious symptoms such as fatigue or breathing problems. Since treatment can often slow down the progression of heart failure, having a machine learning model that could successfully predict a person's chances of suffering and hence dying from heart failure would mean that we could increase early detection and likely catch more cases early on and slow the progression of the disease.
+
+
+Since the data set I will use includes deaths as a result of heart failure, creating an effective machine learning model out of this data set would also allow doctors to preemptively begin treatment that may prevent the patient from dying due to heart failure.
+
+### About the Data set
+This data set was assembled as part of a study conducted on heart failure patients who were admitted to Institute of Cardiology and Allied hospital Faisalabad-Pakistan between April-December 2015 [@survive2017]. All patients in this case had left-ventricular systolic dysfunction, meaning that the left ventricle was unable to contract vigorously, which would indicate a pumping problem [@mayo]. Furthermore, patients in this study all fell into the New York Heart Association (NYHA) Functional Classification levels III and IV.
+
+
+### Project Outline
+
+## Exploratory Data Analysis
+
+### Loading in Packages and Data
+
+We will first begin by loading in the packages we will use for the project and by loading raw heart failure data to the variable `heartfailure_data`.
+```{r, message = FALSE}
+# Loading in libraries we will be using 
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+library(knitr)
+library(corrplot)
+library(ggthemes)
+library(gt)
+library(gtExtras)
+library(visdat)
+tidymodels_prefer()
 ```
 
-## Including Plots
+```{r, message = FALSE}
+# Read raw data into a data frame. 
+heartfailure_data <- read_csv("heart_failure_clinical_records_dataset.csv")
 
-You can also embed plots, for example:
+head(heartfailure_data) %>%
+  gt() %>%
+  gt_theme_nytimes() %>%
+  tab_header("Heart Failure Data") 
+```
+The data was obtained from the Kaggle Data set ["Heart Failure Prediction"](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data), with the original data being from a [study](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181001) conducted by Tanvir Ahmad, Assia Munir, Sajjad Haider Bhatti, Muhammad Aftab, and Muhammad Ali Raza.
+$$\\$$
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+We can now look at some basic information about the size of our data set:
+```{r}
+dim(heartfailure_data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We can see that our data set has 299 observations to go along with 13 variables. Let us now take a look at a summary of our variables:
+```{r}
+vis_dat(heartfailure_data)
+```
+We can see that our data does not include any missing data, so that is not something that we need to worry about. We also see that all of our data is of type numeric, even though some of our variables, including `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`, and `DEATH_EVENT` are categorical, so we will have to deal with that later.
+
+When looking at information about the original data set, I also noticed that `time` indicated either the number of days until the patients died, or the number of days until the patient was censored, which in this case simply means that they did not die. Due to this, I have decided that this information would not only be hard to interpret, it would also not be relevant to whether the patient actually died of heart failure or not so will elect to remove that from the data set I will use for the machine learning models.
+```{r}
+
+```
+
+
+
+
+
+
+
+## References
