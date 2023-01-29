@@ -28,7 +28,7 @@ According to the Center for Disease Control and Prevention, more than 6 million 
 
 According to the National Heart, Lung, and Blood Institute (NHLBI), "Heart failure may not cause symptoms right away. But eventually, you may feel tired and short of breath and notice fluid buildup in your lower body, around your stomach, or your neck." Heart failure can also eventually cause damage to other organs such as the liver or kidneys and lead to other conditions such as pulmonary hypertension, heart valve disease, and sudden cardiac arrest.
 
-Although heart disease is incurable, the Mayo Clinic states that "Proper treatment can improve the signs and symptoms of heart failure and may help some people live longer," and that "Lifestyle changes - such as losing weight, exercising, and managing stress - can improve your quality of life."
+Although heart disease is incurable, the Mayo Clinic states that "Proper treatment can improve the signs and symptoms of heart failure and may help some people live longer," and that "Lifestyle changes - such as losing weight, exercising, and managing stress - can improve your quality of life" [@mayo]
 
 ### Why Predict Death by Heart Failure
 
@@ -85,12 +85,25 @@ We can see that our data set has 299 observations to go along with 13 variables.
 ```{r}
 vis_dat(heartfailure_data)
 ```
-We can see that our data does not include any missing data, so that is not something that we need to worry about. We also see that all of our data is of type numeric, even though some of our variables, including `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`, and `DEATH_EVENT` are categorical, so we will have to deal with that later.
+We can see that our data does not include any missing data, so that is not something that we need to worry about. We also see that all of our data is of type numeric, even though some of our variables, including `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`, and `DEATH_EVENT` are binary, so we will have to deal with that later.
 
 When looking at information about the original data set, I also noticed that `time` indicated either the number of days until the patients died, or the number of days until the patient was censored, which in this case simply means that they did not die. Due to this, I have decided that this information would not only be hard to interpret, it would also not be relevant to whether the patient actually died of heart failure or not so will elect to remove that from the data set I will use for the machine learning models.
 ```{r}
-s
+heartfailure_data <- heartfailure_data %>% select(-time)
 ```
+
+Now we are left with the following variables which will be utilized for the machine learning model: 
+- `age`: The age of the patients in the study 
+- `anaemia`: Patients were considered anemic (indicated by a 1) if their haematocrit levels were lower than 36%, indicated by 0 if patient was not anemic. 
+- `creatinine_phosphokinase`: The amount of creatinine phosphokinase (CPK) in the blood. CPK is often released into the blood when muscle tissue gets damaged. 
+- `diabetes`: 1 if the patient has diabetes, 0 if patient does not have diabetes. 
+- `ejection_fraction`: Indicates the percentage of blood the left ventricle pumped out upon each contraction. 
+- `platelets`: Result of platelet count, which measure the number of platelets in the blood.
+- `serum_creatinine`: Creatinine levels in the blood. High serum creatinine levels indicate that the kidneys may not be functioning properly [@creatinine2019].
+- `serum_sodium`: Results of a blood sodium test. Low serum sodium levels may be an indicator of heart failure [@sodium2018]
+- `sex`: 1 if the patient is male, 0 if the patient is female.
+- `smoking`: 1 if the patient smokes, o if the patient does not smoke.
+- `DEATH_EVENT`: 1 if the patient died during the course of the study, 0 if the patient did not die during the course of the study.
 
 
 
