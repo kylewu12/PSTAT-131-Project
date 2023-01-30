@@ -9,7 +9,6 @@ output:
     toc: true
     toc_float: true
     code_folding: show
-
 ---
 
 ```{r setup, include=FALSE}
@@ -32,16 +31,15 @@ Although heart disease is incurable, the Mayo Clinic states that "Proper treatme
 
 ### Why Predict Death by Heart Failure
 
-Although heart failure may be incurable, it could still be beneficial for medical professionals to predict whether a patient may develop and potentially die from heart failure. For example, if a doctor can determine with high probability that a patient may develop heart failure later in life, they may be able to inform the patient so that they can make lifestyle changes early enough to prevent the most significant symptoms. 
+Although heart failure may be incurable, it could still be beneficial for medical professionals to predict whether a patient may develop and potentially die from heart failure. For example, if a doctor can determine with high probability that a patient may develop heart failure later in life, they may be able to inform the patient so that they can make lifestyle changes early enough to prevent the most significant symptoms.
 
 Additionally, although the body initially tries to mask the problem of heart failure through various mechanisms such as enlarging the heart, developing more muscle mass, or pumping faster, these solutions are all temporary and in these cases, heart failure will simply progress until the onset of more serious symptoms such as fatigue or breathing problems. Since treatment can often slow down the progression of heart failure, having a machine learning model that could successfully predict a person's chances of suffering and hence dying from heart failure would mean that we could increase early detection and likely catch more cases early on and slow the progression of the disease.
-
 
 Since the data set I will use includes deaths as a result of heart failure, creating an effective machine learning model out of this data set would also allow doctors to preemptively begin treatment that may prevent the patient from dying due to heart failure.
 
 ### About the Data set
-This data set was assembled as part of a study conducted on heart failure patients who were admitted to Institute of Cardiology and Allied hospital Faisalabad-Pakistan between April-December 2015 [@survive2017]. All patients in this case had left-ventricular systolic dysfunction, meaning that the left ventricle was unable to contract vigorously, which would indicate a pumping problem [@mayo]. Furthermore, patients in this study all fell into the New York Heart Association (NYHA) Functional Classification levels III and IV.
 
+This data set was assembled as part of a study conducted on heart failure patients who were admitted to Institute of Cardiology and Allied hospital Faisalabad-Pakistan between April-December 2015 [@survive2017]. All patients in this case had left-ventricular systolic dysfunction, meaning that the left ventricle was unable to contract vigorously, which would indicate a pumping problem [@mayo]. Furthermore, patients in this study all fell into the New York Heart Association (NYHA) Functional Classification levels III and IV.
 
 ### Project Outline
 
@@ -50,6 +48,7 @@ This data set was assembled as part of a study conducted on heart failure patien
 ### Loading in Packages and Data
 
 We will first begin by loading in the packages we will use for the project and by loading raw heart failure data to the variable `heartfailure_data`.
+
 ```{r, message = FALSE}
 # Loading in libraries we will be using 
 library(tidyverse)
@@ -61,6 +60,7 @@ library(ggthemes)
 library(gt)
 library(gtExtras)
 library(visdat)
+library(fastDummies)
 tidymodels_prefer()
 ```
 
@@ -73,42 +73,124 @@ head(heartfailure_data) %>%
   gt_theme_nytimes() %>%
   tab_header("Heart Failure Data") 
 ```
-The data was obtained from the Kaggle Data set ["Heart Failure Prediction"](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data), with the original data being from a [study](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181001) conducted by Tanvir Ahmad, Assia Munir, Sajjad Haider Bhatti, Muhammad Aftab, and Muhammad Ali Raza.
-$$\\$$
+
+The data was obtained from the Kaggle Data set ["Heart Failure Prediction"](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data), with the original data being from a [study](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181001) conducted by Tanvir Ahmad, Assia Munir, Sajjad Haider Bhatti, Muhammad Aftab, and Muhammad Ali Raza. $$\\$$ \### Tidying Our Data
 
 We can now look at some basic information about the size of our data set:
+
 ```{r}
 dim(heartfailure_data)
 ```
 
 We can see that our data set has 299 observations to go along with 13 variables. Let us now take a look at a summary of our variables:
+
 ```{r}
 vis_dat(heartfailure_data)
 ```
-We can see that our data does not include any missing data, so that is not something that we need to worry about. We also see that all of our data is of type numeric, even though some of our variables, including `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`, and `DEATH_EVENT` are binary, so we will have to deal with that later.
 
-When looking at information about the original data set, I also noticed that `time` indicated either the number of days until the patients died, or the number of days until the patient was censored, which in this case simply means that they did not die. Due to this, I have decided that this information would not only be hard to interpret, it would also not be relevant to whether the patient actually died of heart failure or not so will elect to remove that from the data set I will use for the machine learning models.
+We can see that our data does not include any missing data, so that is not something that we need to worry about. We also see that all of our data is of type numeric, even though some of our variables, including `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`, and `DEATH_EVENT` are binary, so we will have to deal with that.
+
+```{r}
+heartfailure_data$anaemia <- as.factor(heartfailure_data$anaemia)
+heartfailure_data$diabetes <- as.factor(heartfailure_data$diabetes)
+heartfailure_data$high_blood_pressure <- as.factor(heartfailure_data$high_blood_pressure)
+heartfailure_data$sex <- as.factor(heartfailure_data$sex)
+heartfailure_data$smoking <- as.factor(heartfailure_data$smoking)
+heartfailure_data$DEATH_EVENT <- as.factor(heartfailure_data$DEATH_EVENT)
+```
+
+When looking at information about the original data set, I also noticed that `time` indicated either the number of days until the patients died, or the number of days until the patient was censored, which in this case simply means that they did not die. Due to this, I have decided that this information would not only be hard to interpret, it would also be irrelevant to whether the patient actually died of heart failure or not so will elect to remove that from the data set I will use for the machine learning models.
+
 ```{r}
 heartfailure_data <- heartfailure_data %>% select(-time)
 ```
 
-Now we are left with the following variables which will be utilized for the machine learning model: 
-- `age`: The age of the patients in the study 
-- `anaemia`: Patients were considered anemic (indicated by a 1) if their haematocrit levels were lower than 36%, indicated by 0 if patient was not anemic. 
-- `creatinine_phosphokinase`: The amount of creatinine phosphokinase (CPK) in the blood. CPK is often released into the blood when muscle tissue gets damaged. 
-- `diabetes`: 1 if the patient has diabetes, 0 if patient does not have diabetes. 
-- `ejection_fraction`: Indicates the percentage of blood the left ventricle pumped out upon each contraction. 
-- `platelets`: Result of platelet count, which measure the number of platelets in the blood.
-- `serum_creatinine`: Creatinine levels in the blood. High serum creatinine levels indicate that the kidneys may not be functioning properly [@creatinine2019].
-- `serum_sodium`: Results of a blood sodium test. Low serum sodium levels may be an indicator of heart failure [@sodium2018]
-- `sex`: 1 if the patient is male, 0 if the patient is female.
-- `smoking`: 1 if the patient smokes, o if the patient does not smoke.
-- `DEATH_EVENT`: 1 if the patient died during the course of the study, 0 if the patient did not die during the course of the study.
+### Variable Breakdown
 
+Now we are left with the following variables which will be utilized for the machine learning model: - `age`: The age of the patients in the study
 
+-   `anaemia`: Patients were considered anemic (indicated by a 1) if their haematocrit levels were lower than 36%, indicated by 0 if patient was not anemic.
 
+-   `creatinine_phosphokinase`: The amount of creatinine phosphokinase (CPK) in the blood. CPK is often released into the blood when muscle tissue gets damaged.
 
+-   `diabetes`: 1 if the patient has diabetes, 0 if patient does not have diabetes.
 
+-   `ejection_fraction`: Indicates the percentage of blood the left ventricle pumped out upon each contraction.
 
+-   `platelets`: Result of platelet count, which measure the number of platelets in the blood.
+
+-   `serum_creatinine`: Creatinine levels in the blood. High serum creatinine levels indicate that the kidneys may not be functioning properly [@creatinine2019, @cpk2010].
+
+-   `serum_sodium`: Results of a blood sodium test. Low serum sodium levels may be an indicator of heart failure [@sodium2018]
+
+-   `sex`: 1 if the patient is male, 0 if the patient is female.
+
+-   `smoking`: 1 if the patient smokes, 0 if the patient does not smoke.
+
+-   `DEATH_EVENT`: 1 if the patient died during the course of the study, 0 if the patient did not die during the course of the study.
+
+### Visual EDA
+
+#### Heart Failure Deaths Distribution
+
+We will first look at the distribution of heart failure deaths
+
+```{r}
+ggplot(heartfailure_data, aes(x = as.factor(DEATH_EVENT), fill = "pink")) + 
+  geom_bar() + 
+  scale_fill_manual(values = "pink") +
+  labs(title = "Distribution of Heart Failure Deaths", x = "Death Event", y = "Count") +
+  theme(legend.position = "none")
+```
+
+From the histogram, we see that most of the patients in the study did not die during the duration of the study. In fact, of the 299 observations, we 32.1% of the patients died and 67.9% of the patients did not die.
+
+### Variable Correlation Plot
+
+To see if there is any correlation between our numeric variables, we will now make a correlation heat map of the correlation between the predictors.
+
+```{r}
+heartfailcorr <- heartfailure_data %>% 
+  select(where(is.numeric)) %>%
+  cor() %>%
+  corrplot(order = "AOE", addCoef.col = "black")
+```
+
+From the heat map, we see that there is little to no correlation between all of the numeric variables. At first it may seem suspicious that none of the variables are really correlated with each other but upon further understanding of all the numeric variables, the result makes sense. In this case, with the exception of age, the values we received were all from tests that the doctors would have performed. Since each test was used to measure completely different aspects of the patient's health, there is no reason to believe that any of the tests performed should have results that strongly correlate with one another.
+
+### Age
+
+It is often the case that older patients are more likely to die from medical conditions that may arise. From the box plot shown, we see that with heart failure, this is indeed the case. We see that the age of patients who died over the course of the study tended to lean quite a bit higher than for patients who did not die. Both the median age for the patients who died and the 75th percentile for patients who did not die was 65. The median age for patients who did not die was 60 years old.
+
+```{r}
+ggplot(data = heartfailure_data, aes(x = age, group = DEATH_EVENT, fill = DEATH_EVENT)) +
+  geom_boxplot() +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Age Distribution of Patients who Lived/Died during Study", x = "Age", fill = "Death Event") 
+```
+
+### Sex
+
+```{r}
+# make bar plot with sex distribution and likelihood of death by sex involved 
+```
+
+### Creatinine Phosphokinase Levels
+
+```{r}
+ggplot(data = heartfailure_data, aes(x = creatinine_phosphokinase, group = DEATH_EVENT, fill = DEATH_EVENT)) +
+  geom_boxplot() + 
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Creatinine Phosphokinase Distribution of Patients", x = "Creatinine Phosphokinase Levels (IU/L)", fill = "Death Event") 
+```
+
+### Ejection Fraction
+
+```{r}
+ggplot(data = heartfailure_data, aes(x = ejection_fraction, group = DEATH_EVENT, fill = DEATH_EVENT)) +
+  geom_boxplot() + 
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Ejection Fraction Distribution of Patients", x = "Ejection Fraction", fill = "Death Event") 
+```
 
 ## References
