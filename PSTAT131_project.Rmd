@@ -214,6 +214,8 @@ ggplot(data = heartfailure_data, aes(x = ejection_fraction, group = DEATH_EVENT,
 
 ### Platelets
 
+A normal platelet count ranges from 150,000 to 450,000 platelets per micro liter of blood [@platelet1]. Research has shown that patients with thrombocytopaenia, or a low platelet count may be linked to higher rates of all-cause mortality [@platelet2]. From the plots, it appears that most patients fall within the normal platelet count level and no differences are immediately noticeable by eye.
+
 ```{r}
 options(scipen = 999)
 
@@ -226,6 +228,8 @@ ggplot(data = heartfailure_data, aes(x = platelets, group = DEATH_EVENT, fill = 
 
 ### Serum Creatinine
 
+Serum Creatinine is a waste product of creatinine, a chemical made by the body that is used to supply energy to muscles. Normal results are 0.7 t0 1.3 mg/dL for men and 0.6 to 1.1 mg/dL for women [@serumc2021]. Serum creatinine above 1.5 mg/dL is associated with renal failure [@survive2017]. There is evidence that chronic kidney disease contributes to cardiac damage and that heart failure is also a major cause of chronic kidney disease [@serumc2004]. We see from the data that patients who died tended to have higher serum creatinine levels, which indicates that their kidneys would likely have been performing sub-optimally. 
+
 ```{r}
 ggplot(data = heartfailure_data, aes(x = serum_creatinine, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
@@ -236,14 +240,22 @@ ggplot(data = heartfailure_data, aes(x = serum_creatinine, group = DEATH_EVENT, 
 
 ### Serum Sodium
 
+The normal range for serum sodium is between 135 and 145 milliequivalents per liter (mEq/L) [@mayo2]. It appears that in general, patients who died over the duration of the study tended to have lower serum sodium levels than patients who did not die, so perhaps that could have indicated further progression of heart failure. Having low serum sodium levels, called hyponatremia is an indicator of heart failure, as it can cause fluids to accumulate in the body, which would dilute sodium in the body.
+
 ```{r}
 ggplot(data = heartfailure_data, aes(x = serum_sodium, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
   scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
-  labs(title = "Serum Sodium Distribution of Patients", x = "Serum Sodium (mmol/L)", fill = "Death Event") 
+  labs(title = "Serum Sodium Distribution of Patients", x = "Serum Sodium (mEql/L)", fill = "Death Event") 
 ```
 
 
 ## Model Setup
+
+Upon basic analysis of our data, we know how various variables may be distributed as they relate to heart failure. We can now move on to the creation of our models. We must first randomly split our data into training and testing sets, create our recipes, and implement cross validation to assist with our models.
+
+
+
+### Train Test Split
 
 ## References
