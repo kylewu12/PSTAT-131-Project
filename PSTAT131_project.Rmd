@@ -146,7 +146,7 @@ ggplot(heartfailure_data, aes(x = as.factor(DEATH_EVENT), fill = "pink")) +
   theme(legend.position = "none")
 ```
 
-From the histogram, we see that most of the patients in the study did not die during the duration of the study. In fact, of the 299 observations, we 32.1% of the patients died and 67.9% of the patients did not die.
+From the histogram, we see that most of the patients in the study did not die during the duration of the study. In fact, of the 299 observations, 96 (32.1%) of the patients died and 203 (67.9%) of the patients did not die.
 
 ### Variable Correlation Plot
 
@@ -214,11 +214,34 @@ ggplot(data = heartfailure_data, aes(x = ejection_fraction, group = DEATH_EVENT,
 
 ### Platelets
 
+```{r}
+options(scipen = 999)
+
+ggplot(data = heartfailure_data, aes(x = platelets, group = DEATH_EVENT, fill = DEATH_EVENT)) +
+  geom_boxplot() + 
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Platelet Count Distribution of Patients", x = "Platelet Count (platelets/mcL)", fill = "Death Event") 
+```
+
 
 ### Serum Creatinine
 
+```{r}
+ggplot(data = heartfailure_data, aes(x = serum_creatinine, group = DEATH_EVENT, fill = DEATH_EVENT)) +
+  geom_boxplot() + 
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Serum Creatinine Distribution of Patients", x = "Serum Creatinine (mg/dL)", fill = "Death Event") 
+```
+
 
 ### Serum Sodium
+
+```{r}
+ggplot(data = heartfailure_data, aes(x = serum_sodium, group = DEATH_EVENT, fill = DEATH_EVENT)) +
+  geom_boxplot() + 
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Serum Sodium Distribution of Patients", x = "Serum Sodium (mmol/L)", fill = "Death Event") 
+```
 
 
 ## Model Setup
