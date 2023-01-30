@@ -8,7 +8,7 @@ output:
   html_document:
     toc: true
     toc_float: true
-    code_folding: show
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -74,7 +74,10 @@ head(heartfailure_data) %>%
   tab_header("Heart Failure Data") 
 ```
 
-The data was obtained from the Kaggle Data set ["Heart Failure Prediction"](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data), with the original data being from a [study](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181001) conducted by Tanvir Ahmad, Assia Munir, Sajjad Haider Bhatti, Muhammad Aftab, and Muhammad Ali Raza. $$\\$$ \### Tidying Our Data
+The data was obtained from the Kaggle Data set ["Heart Failure Prediction"](https://www.kaggle.com/datasets/andrewmvd/heart-failure-clinical-data), with the original data being from a [study](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0181001) conducted by Tanvir Ahmad, Assia Munir, Sajjad Haider Bhatti, Muhammad Aftab, and Muhammad Ali Raza. $$\\$$
+
+
+### Tidying Our Data
 
 We can now look at some basic information about the size of our data set:
 
@@ -84,7 +87,7 @@ dim(heartfailure_data)
 
 We can see that our data set has 299 observations to go along with 13 variables. Let us now take a look at a summary of our variables:
 
-```{r}
+```{r, message = FALSE}
 vis_dat(heartfailure_data)
 ```
 
@@ -109,7 +112,7 @@ heartfailure_data <- heartfailure_data %>% select(-time)
 
 Now we are left with the following variables which will be utilized for the machine learning model: - `age`: The age of the patients in the study
 
--   `anaemia`: Patients were considered anemic (indicated by a 1) if their haematocrit levels were lower than 36%, indicated by 0 if patient was not anemic.
+-   `anaemia`: Patients were considered anemic (indicated by a 1) if their haematocrit levels were lower than 36%. (indicated by 0 if patient was not anemic).
 
 -   `creatinine_phosphokinase`: The amount of creatinine phosphokinase (CPK) in the blood. CPK is often released into the blood when muscle tissue gets damaged.
 
@@ -129,9 +132,9 @@ Now we are left with the following variables which will be utilized for the mach
 
 -   `DEATH_EVENT`: 1 if the patient died during the course of the study, 0 if the patient did not die during the course of the study.
 
-### Visual EDA
+## Visual EDA
 
-#### Heart Failure Deaths Distribution
+### Heart Failure Deaths Distribution
 
 We will first look at the distribution of heart failure deaths
 
@@ -171,11 +174,25 @@ ggplot(data = heartfailure_data, aes(x = age, group = DEATH_EVENT, fill = DEATH_
 
 ### Sex
 
+This data set was comprised of 105 women and 194 men. From the data, we also find that 31.96% of men and 32.38% of women in the data set died during the duration of the study.
+
+
 ```{r}
-# make bar plot with sex distribution and likelihood of death by sex involved 
+# make bar plot with sex distribution and likelihood of death by sex involved
+
+sex_renamed <- heartfailure_data
+levels(sex_renamed$sex)[levels(sex_renamed$sex) == "0"] <- "Female"
+levels(sex_renamed$sex)[levels(sex_renamed$sex) == "1"] <- "Male"
+
+ggplot(data = sex_renamed, aes(x = sex, group = DEATH_EVENT, fill = DEATH_EVENT)) + 
+  geom_bar() + 
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  labs(title = "Distribution of Sex", y = "Count", fill = "Death Event")
 ```
 
 ### Creatinine Phosphokinase Levels
+
+Creatinine Phosphokinase (CPK) is often released into the blood when muscle tissue gets damaged, making it a relatively good metric upon which heart failure can be diagnosed [@creatinine2019]. Depending on factors such as age, gender, and activity level, generally, 24-204 U/L is considered normal [@cpknorm]. Since all patients in the study were already experiencing heart failure and fell into NYHA classification levels III and IV, we would expect their CPK levels to be higher than the average population. We find that the average CPK levels for patients who died was 670 while average CPK levels for those who did not die was 540.
 
 ```{r}
 ggplot(data = heartfailure_data, aes(x = creatinine_phosphokinase, group = DEATH_EVENT, fill = DEATH_EVENT)) +
@@ -186,11 +203,24 @@ ggplot(data = heartfailure_data, aes(x = creatinine_phosphokinase, group = DEATH
 
 ### Ejection Fraction
 
+Ejection fraction is a measure of the percentage of blood that the ventricles pump out upon each contraction, and a lower fraction would mean that an individual's heart was having difficulty keeping up with the body's needs and would be a strong indication of heart failure. A healthy male would have an ejection fraction in the range of 52%-72% and a healthy woman would have an ejection fraction in the range of 54%-74%, with values lower than that indicating patients in progressively worse conditions [@ejection2022]. Since all patients were either in the NYHA classification levels III or IV, we would expect that ejection fractions would likely be lower than expected for the average population; however, we also see that the distribution of ejection fraction for patients who died due to heart failure is lower than that of patients who did not die over the duration of the study.
+
 ```{r}
 ggplot(data = heartfailure_data, aes(x = ejection_fraction, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
   scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
   labs(title = "Ejection Fraction Distribution of Patients", x = "Ejection Fraction", fill = "Death Event") 
 ```
+
+### Platelets
+
+
+### Serum Creatinine
+
+
+### Serum Sodium
+
+
+## Model Setup
 
 ## References
