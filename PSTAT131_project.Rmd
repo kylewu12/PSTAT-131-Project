@@ -14,6 +14,10 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+<center>
+![](heartfail.jpg)
+</center>
+
 
 ## Introduction
 
@@ -95,12 +99,13 @@ We can see that our data does not include any missing data, so that is not somet
 
 ```{r}
 # Converting categorical variables to factors.
-heartfailure_data$anaemia <- as.factor(heartfailure_data$anaemia)
-heartfailure_data$diabetes <- as.factor(heartfailure_data$diabetes)
-heartfailure_data$high_blood_pressure <- as.factor(heartfailure_data$high_blood_pressure)
-heartfailure_data$sex <- as.factor(heartfailure_data$sex)
-heartfailure_data$smoking <- as.factor(heartfailure_data$smoking)
-heartfailure_data$DEATH_EVENT <- as.factor(heartfailure_data$DEATH_EVENT)
+heartfailure_data <- heartfailure_data %>%
+  mutate(DEATH_EVENT = factor(DEATH_EVENT, levels = c("1", "0")),
+         anaemia = factor(anaemia),
+         diabetes = factor(diabetes),
+         high_blood_pressure = factor(high_blood_pressure),
+         sex = factor(sex),
+         smoking = factor(smoking))
 ```
 
 When looking at information about the original data set, I also noticed that `time` indicated either the number of days until the patients died, or the number of days until the patient was censored, which in this case simply means that they did not die. Due to this, I have decided that this information would not only be hard to interpret, it would also be irrelevant to whether the patient actually died of heart failure or not so will elect to remove that from the data set I will use for the machine learning models.
@@ -280,5 +285,28 @@ After the split, there are 224 observations in the training set and 75 observati
 
 
 ### Building our Recipe
+
+We can now put our predictors and response variables together to build the recipe which we will use throughout all our models. Since most models use pretty much the same predictors and conditions, we will create one recipe that can be implemented among the different models and which can be adjusted based on the models that we use. The recipe essentially contains the parts that we need in order to successfully create our machine learning models.
+
+For our recipe, we will use the 11 predictors that we had previously mentioned: `age`, `amaemia`, `creatinine_phosphokinase`, `diabetes`, `ejection_fraction`, `high_blood_pressure`, `platelets`, `serum_creatinine`, `serum_sodium`, `sex`, and `smoking`.
+
+For the recipe to work, we will also have to convert our categorical variables into dummy variables, and these variables are: `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`.
+
+We will also have to normalize our variables by centering and scaling the recipe.
+
+```{r}
+heartfailure_recipe <- recipe(DEATH_EVENT ~., data = heartfailure_data) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors())
+```
+
+### K-Fold Cross Validation
+
+
+## Model Building
+
+Now that we have all the initial setup completed, it is time for us to finally build our models
+
 
 ## References
