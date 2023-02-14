@@ -295,18 +295,24 @@ For the recipe to work, we will also have to convert our categorical variables i
 We will also have to normalize our variables by centering and scaling the recipe.
 
 ```{r}
+# Setting up recipe
 heartfailure_recipe <- recipe(DEATH_EVENT ~., data = heartfailure_data) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_center(all_predictors()) %>%
+  step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
+  step_center(all_predictors()) %>%   
   step_scale(all_predictors())
 ```
 
 ### K-Fold Cross Validation
+For many of our models, we may want to find the best hyperparameter that would allow us to have the most accurate model on our data, this process is known as hyperparameter tuning. Here k-fold cross-validation comes in handy. When using k-fold cross validation, it is common to use 10 folds, and that is what we will do here. We will stratify on the outcome `DEATH_EVENT` in order to perform the cross validation.
+
+```{r}
+heartfailure_folds <- vfold_cv(heartfailure_train, v = 10, starta = DEATH_EVENT)  # Create Folds
+```
 
 
 ## Model Building
 
-Now that we have all the initial setup completed, it is time for us to finally build our models
+Now that we have all the initial setup completed, it is time for us to finally build our models. In this case, we have chosen to try seven different models to test their effectiveness at predicting heart failure deaths. The models all utilized the same basic recipe but applied to different techniques. To empirically gauge which model worked the best, we will use **accuracy** and **ROC-AUC** as our performance metrics. ROC-AUC is effective as a metric because it allows for the evaluation of a model in cases where the data is not perfectly balanced, much like in our given data set. ROC-AUC works by calculating the area under the curve for receiver the receiver operating characteristic curve, which shows the relationship between sensitivity and 1-specificity of our models. Sensitivity is also known as the true positive rate of our model while 1-specificity is the false positive rate of our model. When we test for accuracy, we are testing for how often our model predicted the correct outcome on our testing set.
 
 
 ## References
