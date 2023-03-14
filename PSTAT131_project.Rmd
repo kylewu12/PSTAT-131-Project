@@ -292,7 +292,7 @@ dim(heartfailure_train)
 dim(heartfailure_test)
 ```
 
-After the split, there are 224 observations in the training set and 75 observations in the testing set.
+After the split, there are 238 observations in the training set and 61 observations in the testing set.
 
 
 ### Building our Recipe
@@ -428,12 +428,12 @@ heart_neighbors_grid <- grid_regular(neighbors(range = c(1, 20)), levels = 20)
 heart_en_grid <- grid_regular(penalty(range = c(0.02,3), trans = identity_trans()), mixture(range = c(0,1)), levels = 10)
 
 # Random Forest
-heart_rf_grid <- grid_regular(mtry(range = c(1, 11)),
+heart_rf_grid <- grid_regular(mtry(range = c(1, 10)),
                               trees(range = c(50, 1000)),
                               min_n(range = c(5, 25)), levels = 10)
 
 # Boosted Trees
-heart_bt_grid <- grid_regular(mtry(range = c(1, 11)),
+heart_bt_grid <- grid_regular(mtry(range = c(1, 10)),
                               trees(range = c(100, 1000)),
                               learn_rate(range = c(-10, -1)),
                               levels = 5)
@@ -441,7 +441,7 @@ heart_bt_grid <- grid_regular(mtry(range = c(1, 11)),
 
 
 4. Tune model to find best fit for data and save models as rds.
-```{r, eval = FALSE}
+```{r, eval=FALSE}
 registerDoParallel(cores = 6)
 
 # KNN Tuning
@@ -697,14 +697,15 @@ heart_rf_accuracy <- augment(heart_rf_fit, new_data = heartfailure_test) %>%
 final_rf_model_test <- augment(heart_rf_fit, heartfailure_test)
 ```
 
-From the confusion matrix below, we are able to see how our random forest actually did on our model in terms of prediciton. We see that 
+From the confusion matrix below, we are able to see how our random forest actually did on our model in terms of prediction. We see that the model has a false positive rate about 13.1% of the time and a false negative rate about 16.4% of the time. As shown earlier, this model has an accuracy of 70.5%. It is important to note, however, that our testing set is quite small at only 61 values, meaning that accuracy is very sensitive depending on the results of the model.
 ```{r}
 conf_mat(final_rf_model_test, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
 ```
 
+In the figure below, we plot the ROC curve. The more the ROC curve goes up and to the left, the better the model. Although this model does not follow that trajectory fully, its shape and the ROC AUC value of 0.746 still indicate a model that is relatively efficient at predicting the heart failure outcome of patients.
 
 ```{r}
-augment(heart_knn_fit, new_data = heartfailure_test) %>%
+augment(heart_rf_fit, new_data = heartfailure_test) %>%
   roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
   autoplot() 
 ```
@@ -718,23 +719,43 @@ heart_bt_roc_auc <- augment(heart_bt_fit, new_data = heartfailure_test) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
 ```
 
+The confusion matrix below breaks down the predictions made by the Gradient-Boosted Trees model. Again, it is important to note that accuracy may be signifcantly affected purely because of the low number of observations in teh training set, but this model exhibited 73.4% accuracy on the testing data.
+
+
+```{r}
+final_bt_model_test <- augment(heart_bt_fit, heartfailure_test)
+
+conf_mat(final_bt_model_test, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+```
+
+Below, we see the ROC curve plotted for the gradient-boosted trees model. The model had an ROC AUC of 0.734, and while not perfect, demonstrates the general shape that we want to see from the ROC curve.
+
+```{r}
+augment(heart_bt_fit, new_data = heartfailure_test) %>%
+  roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
+  autoplot()
+```
+
 
 ### Variable Importance Plot
 
-```{}
+When creating a random forest model, we are able to create a variable importance plot, which allows us to visualize which variables were most effective in improving the model. We are able to see that variables which were dummy coded (high blood pressure, diabetes, smoking, and sex) appear to have relatively small effects in predicting the outcome of heart failure patients. We are also able to see the ranking of the importance of the variables in the plot with the variable most useful in improving the model at the top. 
+
+```{r}
 heart_rf_fit %>%
   extract_fit_engine() %>%
-  vip(aesthetics = list(fill = "green", color = "pink"))
+  vip(aesthetics = list(fill = "pink", color = "lightblue"))
 ```
 
-## Result of Top Performing Models 
-From 
+Knowing that some variables are more effective at predicting patient outcomes, we will elect to try out different random forest models with different numbers of predictors. We will test out all models that range from the 2 most useful predictors to the 6 most useful predictors to see if we can improve the efficacy of our models with simpler recipes. The reason we want to look into simplifying our models is that overly-complex models may be more likely to over fit as they begin to fit the noise of the training data instead of the underlying patterns which we look for [@simpler]. Having simpler models will also improve interpretability and in the medical setting may allow doctors to more easily diagnose patients with less tests necessary, which would both save time and cut costs. Since it was clear that random forest and boosted-gradient trees were superior previously, we will continue focusing on these two algorithms as we test our data on simpler models.
 
 
-## Fine Tuning Model
+## Testing Simpler Models
 
-## Attempt 2:
-```{r, eval=FALSE}
+We will proceed with testing simpler models to evaluate if having less predictors in our recipe allows us to create models that allow us to better predict the outcome of patients. For each version of the model, we will output the best model for both random forest and gradient-boosted models and we will then further analyze the best models we get from each algorithm.
+
+### 2 Most Important Variables:
+```{r, eval = FALSE}
 heartfailure_recipe2 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction, data = heartfailure_train) %>%
   step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
   step_center(all_predictors()) %>%
@@ -768,13 +789,13 @@ heart_bt_wkflow2 <- workflow() %>%
 
 
 # Random Forest
-heart_rf_grid2 <- grid_regular(mtry(range = c(1, 2)),
+heart_rf_grid2 <- grid_regular(mtry(range = c(1,1)),
                               trees(range = c(50, 1000)),
                               min_n(range = c(5, 25)), levels = 10)
 
 
 # Boosted Trees
-heart_bt_grid2 <- grid_regular(mtry(range = c(1, 2)),
+heart_bt_grid2 <- grid_regular(mtry(range = c(1,1)),
                               trees(range = c(500, 1000)),
                               learn_rate(range = c(-10, -1)),
                               levels = 10)
@@ -817,11 +838,11 @@ heart_bt_tuned2 <- read_rds(file = "heart_bt.rds2")
 
 
 # Random Forest
-show_best(heart_rf_tuned2, metric = "roc_auc")
+show_best(heart_rf_tuned2, metric = "roc_auc", n=1)
 
 
 # Gradient-Boosted Trees
-show_best(heart_bt_tuned2, metric = "roc_auc")
+show_best(heart_bt_tuned2, metric = "roc_auc", n =1)
 
 
 # Random Forest
@@ -835,34 +856,6 @@ final_heart_rf_model2 <- finalize_workflow(heart_rf_wkflow2, best_heart_rf2)
 best_heart_bt2 <- select_best(heart_tune_res_bt2, metric = "roc_auc")
 
 final_heart_bt_model2 <- finalize_workflow(heart_bt_wkflow2, best_heart_bt2)
-
-
-# Random Forest
-heart_rf_fit2 <- fit(final_heart_rf_model2, heartfailure_train)
-
-
-# Boosted Trees
-heart_bt_fit2 <- fit(final_heart_bt_model2, heartfailure_train)
-
-
-# Random Forest
-heart_rf_train_results2 <- augment(heart_rf_fit2, new_data = heartfailure_train) %>%
-  roc_auc(DEATH_EVENT, estimate = .pred_1)
-
-
-
-# Boosted Trees
-heart_bt_train_resutls2 <- augment(heart_bt_fit2, new_data = heartfailure_train) %>%
-  roc_auc(DEATH_EVENT, estimate = .pred_1)
-
-
-
-# Random Forest
-heart_rf_train_results2
-
-
-# Boosted Trees
-heart_bt_train_resutls2
 
 
 heart_rf_roc_auc2 <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
@@ -880,15 +873,13 @@ heart_bt_roc_auc2 <- augment(heart_bt_fit2, new_data = heartfailure_test) %>%
 
 final_rf_model_test2 <- augment(heart_rf_fit2, heartfailure_test)
 
-conf_mat(final_rf_model_test2, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
-
 heart_rf_roc_auc2 <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
 ```
 
 
 
-## Attempt 3:
+### 3 Most Important Variables:
 
 ```{r, eval=FALSE}
 
@@ -930,13 +921,13 @@ heart_bt_wkflow3 <- workflow() %>%
 # Random Forest
 
 
-heart_rf_grid3 <- grid_regular(mtry(range = c(1, 3)),
+heart_rf_grid3 <- grid_regular(mtry(range = c(1, 2)),
                               trees(range = c(50, 1000)),
                               min_n(range = c(5, 25)), levels = 10)
 
 # Boosted Trees
 
-heart_bt_grid3 <- grid_regular(mtry(range = c(1, 3)),
+heart_bt_grid3 <- grid_regular(mtry(range = c(1, 2)),
                               trees(range = c(500, 1000)),
                               learn_rate(range = c(-10, -1)),
                               levels = 10)
@@ -981,18 +972,18 @@ heart_bt_tuned3 <- read_rds(file = "heart_bt.rds3")
 
 # Random Forest
 
-show_best(heart_rf_tuned3, metric = "roc_auc")
+show_best(heart_rf_tuned3, metric = "roc_auc", n = 1)
 
 # Gradient-Boosted Trees
 
-show_best(heart_bt_tuned3, metric = "roc_auc")
+show_best(heart_bt_tuned3, metric = "roc_auc", n = 1)
 
 # Random Forest
 
 
 best_heart_rf3 <- select_best(heart_tune_res_rf3, metric = "roc_auc")
 
-final_heart_rf_model3 <- finalize_workflow(heart_rf_wkflow3, best_heart_rf2)
+final_heart_rf_model3 <- finalize_workflow(heart_rf_wkflow3, best_heart_rf3)
 
 
 # Gradient-Boosted Trees
@@ -1000,29 +991,6 @@ best_heart_bt3 <- select_best(heart_tune_res_bt3, metric = "roc_auc")
 
 final_heart_bt_model3 <- finalize_workflow(heart_bt_wkflow3, best_heart_bt3)
 
-# Random Forest
-heart_rf_fit3 <- fit(final_heart_rf_model3, heartfailure_train)
-
-# Boosted Trees
-heart_bt_fit3 <- fit(final_heart_bt_model3, heartfailure_train)
-
-# Random Forest
-
-heart_rf_train_results3 <- augment(heart_rf_fit3, new_data = heartfailure_train) %>%
-  roc_auc(DEATH_EVENT, estimate = .pred_1)
-
-# Boosted Trees
-
-heart_bt_train_resutls3 <- augment(heart_bt_fit3, new_data = heartfailure_train) %>%
-  roc_auc(DEATH_EVENT, estimate = .pred_1)
-
-# Random Forest
-
-heart_rf_train_results3
-
-# Boosted Trees
-
-heart_bt_train_resutls3
 
 heart_rf_roc_auc3 <- augment(heart_rf_fit3, new_data = heartfailure_test) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
@@ -1038,13 +1006,426 @@ heart_bt_roc_auc3 <- augment(heart_bt_fit3, new_data = heartfailure_test) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
 
 final_rf_model_test3 <- augment(heart_rf_fit3, heartfailure_test)
+```
 
-conf_mat(final_rf_model_test3, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+### 4 Most Important Variables:
+
+```{r, eval=FALSE}
+
+heartfailure_recipe4 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction + serum_sodium + age, data = heartfailure_train) %>%
+  step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_upsample(DEATH_EVENT, over_ratio = 1)
+
+# Random Forest
+
+
+heart_rf_mod4 <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+
+# Boosted Trees
+
+
+heart_bt_mod4 <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+# Random Forest
+
+
+heart_rf_wkflow4 <- workflow() %>%
+  add_model(heart_rf_mod4) %>% 
+  add_recipe(heartfailure_recipe4)
+
+# Boosted Trees
+
+
+heart_bt_wkflow4 <- workflow() %>%
+  add_model(heart_bt_mod4) %>%
+  add_recipe(heartfailure_recipe4)
+
+# Random Forest
+
+
+heart_rf_grid4 <- grid_regular(mtry(range = c(1, 3)),
+                              trees(range = c(50, 1000)),
+                              min_n(range = c(5, 25)), levels = 10)
+
+# Boosted Trees
+
+heart_bt_grid4 <- grid_regular(mtry(range = c(1, 3)),
+                              trees(range = c(500, 1000)),
+                              learn_rate(range = c(-10, -1)),
+                              levels = 10)
+
+# Random Forest Tuning
+
+
+heart_tune_res_rf4 <- tune_grid(
+  object = heart_rf_wkflow4,
+  resamples = heartfailure_folds,
+  grid = heart_rf_grid4,
+  control = control_grid(verbose = TRUE)
+)
+
+# Boosted Trees Tuning
+
+heart_tune_res_bt4 <- tune_grid(
+  object = heart_bt_wkflow4,
+  resamples = heartfailure_folds,
+  grid = heart_bt_grid4,
+  control = control_grid(verbose = TRUE)
+)
+
+# Writing results to rds files
+# Random Forest
+
+write_rds(heart_tune_res_rf4, file = "heart_rf.rds4")
+
+# Boosted Trees
+
+write_rds(heart_tune_res_bt4, file = "heart_bt.rds4")
 ```
 
 ```{r}
+# Load in tuned Random Forest
 
+heart_rf_tuned4 <- read_rds(file = "heart_rf.rds4")
+
+# Load in tuned Boosted Trees
+
+heart_bt_tuned4 <- read_rds(file = "heart_bt.rds4")
+
+# Random Forest
+
+show_best(heart_rf_tuned4, metric = "roc_auc", n = 1)
+
+# Gradient-Boosted Trees
+
+show_best(heart_bt_tuned4, metric = "roc_auc", n = 1)
+
+# Random Forest
+
+
+best_heart_rf4 <- select_best(heart_tune_res_rf4, metric = "roc_auc")
+
+final_heart_rf_model4 <- finalize_workflow(heart_rf_wkflow4, best_heart_rf4)
+
+
+# Gradient-Boosted Trees
+best_heart_bt4 <- select_best(heart_tune_res_bt4, metric = "roc_auc")
+
+final_heart_bt_model4 <- finalize_workflow(heart_bt_wkflow4, best_heart_bt4)
+
+heart_rf_roc_auc4 <- augment(heart_rf_fit4, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+heart_rf_accuracy4 <- augment(heart_rf_fit4, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_accuracy4 <- augment(heart_bt_fit4, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_roc_auc4 <- augment(heart_bt_fit4, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+final_rf_model_test4 <- augment(heart_rf_fit4, heartfailure_test)
 ```
+
+### 5 Most Important Variables
+```{r, eval = FALSE}
+
+heartfailure_recipe5 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction + serum_sodium + age + creatinine_phosphokinase, data = heartfailure_train) %>%
+  step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_upsample(DEATH_EVENT, over_ratio = 1)
+
+# Random Forest
+heart_rf_mod5 <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+
+# Boosted Trees
+
+
+heart_bt_mod5 <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+# Random Forest
+
+
+heart_rf_wkflow5 <- workflow() %>%
+  add_model(heart_rf_mod5) %>% 
+  add_recipe(heartfailure_recipe5)
+
+# Boosted Trees
+
+
+heart_bt_wkflow5 <- workflow() %>%
+  add_model(heart_bt_mod5) %>%
+  add_recipe(heartfailure_recipe5)
+
+# Random Forest
+
+
+heart_rf_grid5 <- grid_regular(mtry(range = c(1, 4)),
+                              trees(range = c(50, 1000)),
+                              min_n(range = c(5, 25)), levels = 10)
+
+# Boosted Trees
+
+heart_bt_grid5 <- grid_regular(mtry(range = c(1, 4)),
+                              trees(range = c(500, 1000)),
+                              learn_rate(range = c(-10, -1)),
+                              levels = 10)
+
+# Random Forest Tuning
+
+
+heart_tune_res_rf5 <- tune_grid(
+  object = heart_rf_wkflow5,
+  resamples = heartfailure_folds,
+  grid = heart_rf_grid5,
+  control = control_grid(verbose = TRUE)
+)
+
+# Boosted Trees Tuning
+
+heart_tune_res_bt5 <- tune_grid(
+  object = heart_bt_wkflow5,
+  resamples = heartfailure_folds,
+  grid = heart_bt_grid5,
+  control = control_grid(verbose = TRUE)
+)
+
+# Writing results to rds files
+# Random Forest
+
+write_rds(heart_tune_res_rf5, file = "heart_rf.rds5")
+
+# Boosted Trees
+
+write_rds(heart_tune_res_bt5, file = "heart_bt.rds5")
+```
+
+```{r}
+# Load in tuned Random Forest
+
+heart_rf_tuned5 <- read_rds(file = "heart_rf.rds5")
+
+# Load in tuned Boosted Trees
+
+heart_bt_tuned5 <- read_rds(file = "heart_bt.rds5")
+
+# Random Forest
+
+show_best(heart_rf_tuned5, metric = "roc_auc", n = 1)
+
+# Gradient-Boosted Trees
+
+show_best(heart_bt_tuned5, metric = "roc_auc", n = 1)
+
+# Random Forest
+
+
+best_heart_rf5 <- select_best(heart_tune_res_rf5, metric = "roc_auc")
+
+final_heart_rf_model5 <- finalize_workflow(heart_rf_wkflow5, best_heart_rf5)
+
+
+# Gradient-Boosted Trees
+best_heart_bt5 <- select_best(heart_tune_res_bt5, metric = "roc_auc")
+
+final_heart_bt_model5 <- finalize_workflow(heart_bt_wkflow5, best_heart_bt5)
+
+
+heart_rf_roc_auc5 <- augment(heart_rf_fit5, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+heart_rf_accuracy5 <- augment(heart_rf_fit5, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_accuracy5 <- augment(heart_bt_fit5, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_roc_auc5 <- augment(heart_bt_fit5, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+final_rf_model_test5 <- augment(heart_rf_fit5, heartfailure_test)
+```
+
+### 6 Most Important Variables
+
+```{r, eval = FALSE}
+
+heartfailure_recipe6 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction + serum_sodium + age + creatinine_phosphokinase + platelets, data = heartfailure_train) %>%
+  step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_upsample(DEATH_EVENT, over_ratio = 1)
+
+# Random Forest
+
+
+heart_rf_mod6 <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+
+# Boosted Trees
+
+
+heart_bt_mod6 <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+# Random Forest
+
+
+heart_rf_wkflow6 <- workflow() %>%
+  add_model(heart_rf_mod6) %>% 
+  add_recipe(heartfailure_recipe6)
+
+# Boosted Trees
+
+
+heart_bt_wkflow6 <- workflow() %>%
+  add_model(heart_bt_mod6) %>%
+  add_recipe(heartfailure_recipe6)
+
+# Random Forest
+
+
+heart_rf_grid6 <- grid_regular(mtry(range = c(1, 5)),
+                              trees(range = c(50, 1000)),
+                              min_n(range = c(5, 25)), levels = 10)
+
+# Boosted Trees
+
+heart_bt_grid6 <- grid_regular(mtry(range = c(1, 5)),
+                              trees(range = c(500, 1000)),
+                              learn_rate(range = c(-10, -1)),
+                              levels = 10)
+
+# Random Forest Tuning
+
+
+heart_tune_res_rf6 <- tune_grid(
+  object = heart_rf_wkflow6,
+  resamples = heartfailure_folds,
+  grid = heart_rf_grid6,
+  control = control_grid(verbose = TRUE)
+)
+
+# Boosted Trees Tuning
+
+heart_tune_res_bt6 <- tune_grid(
+  object = heart_bt_wkflow6,
+  resamples = heartfailure_folds,
+  grid = heart_bt_grid6,
+  control = control_grid(verbose = TRUE)
+)
+
+# Writing results to rds files
+# Random Forest
+
+write_rds(heart_tune_res_rf6, file = "heart_rf.rds6")
+
+# Boosted Trees
+
+write_rds(heart_tune_res_bt6, file = "heart_bt.rds6")
+```
+
+```{r}
+# Load in tuned Random Forest
+
+heart_rf_tuned6 <- read_rds(file = "heart_rf.rds6")
+
+# Load in tuned Boosted Trees
+
+heart_bt_tuned6 <- read_rds(file = "heart_bt.rds6")
+
+# Random Forest
+
+show_best(heart_rf_tuned6, metric = "roc_auc", n = 1)
+
+# Gradient-Boosted Trees
+
+show_best(heart_bt_tuned6, metric = "roc_auc", n = 1)
+
+# Random Forest
+
+
+best_heart_rf6 <- select_best(heart_tune_res_rf6, metric = "roc_auc")
+
+final_heart_rf_model6 <- finalize_workflow(heart_rf_wkflow6, best_heart_rf4)
+
+
+# Gradient-Boosted Trees
+best_heart_bt6 <- select_best(heart_tune_res_bt6, metric = "roc_auc")
+
+final_heart_bt_model6 <- finalize_workflow(heart_bt_wkflow6, best_heart_bt6)
+
+
+heart_rf_roc_auc6 <- augment(heart_rf_fit6, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+heart_rf_accuracy6 <- augment(heart_rf_fit6, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_accuracy6 <- augment(heart_bt_fit6, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_roc_auc6 <- augment(heart_bt_fit6, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+final_rf_model_test6 <- augment(heart_rf_fit6, heartfailure_test)
+```
+
+### Analysis of Simpler Models
+
+```{r, eval=FALSE}
+variables_used <- c("Original Model (11 Predictors)", "2", "3", "4", "5", "6")
+rf_roc_auc <- c(heart_rf_roc_auc$.estimate, heart_rf_roc_auc2$.estimate, heart_rf_roc_auc3$.estimate, heart_rf_roc_auc4$.estimate, heart_rf_roc_auc5$.estimate, heart_rf_roc_auc6$.estimate)
+rf_accuracy <- c(heart_rf_accuracy$.estimate, heart_rf_accuracy2$.estimate, heart_rf_accuracy3$.estimate, heart_rf_accuracy4$.estimate, heart_rf_accuracy5$.estimate, heart_rf_accuracy6$.estimate)
+rf_better <- c("", "Yes", "Yes", "No", "Yes", "No")
+bt_roc_auc <- c(heart_bt_roc_auc$.estimate, heart_bt_roc_auc2$.estimate, heart_bt_roc_auc3$.estimate, heart_bt_roc_auc4$.estimate, heart_bt_roc_auc5$.estimate, heart_bt_roc_auc6$.estimate)
+bt_better <- c("", "Yes", "Yes" ,"Yes", "Yes", "No")
+
+
+tibble(Predictor_Number = variables_used,
+       ROC_AUC = rf_roc_auc,
+       Improvement = rf_better
+       ) %>%
+  gt() %>%
+  gt_theme_nytimes() %>%
+  tab_header(title = "Performance of RF Models with Different Numbers of Best Variables") %>%
+  cols_label(ROC_AUC = "ROC AUC",
+    Improvement = "Improvement on Full Model",
+    Predictor_Number = "Number of Best Predictors") 
+
+tibble(Predictor_Number = variables_used,
+       ROC_AUC_bt = bt_roc_auc,
+       Improvement_bt = bt_better) %>%
+  gt() %>%
+  gt_theme_nytimes() %>%
+  tab_header(title = "Performance of BT Models with Different Numbers of Best Variables") %>%
+  cols_label(ROC_AUC_bt = "ROC AUC",
+    Improvement_bt = "Improvement on Full Model",
+    Predictor_Number = "Number of Best Predictors") 
+round(rf_roc_auc, 4)
+```
+
+It appears that for both random forest and boosted-gradient tree algorithms the best of the simplified models were the ones that used the two best predictors, which were Serum Creatinine and Ejection Fraction. Additionally, we see that these algorithms actually had substantially better ROC AUC values compared to the full models with values of 0.855 compared to 0.746 for random forest models and 0.826 compared to 0.734 for gradient-boosted tree models.
 
 ## Conclusion
 
