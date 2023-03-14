@@ -46,6 +46,8 @@ Since the data set I will use includes deaths as a result of heart failure, crea
 This data set was assembled as part of a study conducted on heart failure patients who were admitted to Institute of Cardiology and Allied hospital Faisalabad-Pakistan between April-December 2015 [@survive2017]. All patients in this case had left-ventricular systolic dysfunction, meaning that the left ventricle was unable to contract vigorously, which would indicate a pumping problem [@mayo]. Furthermore, patients in this study all fell into the New York Heart Association (NYHA) Functional Classification levels III and IV.
 
 ### Project Outline
+This study will take on a number of steps in order to create machine learning models that will be allow us to predict the chance that a patient will die from heart failure. Since the data is formatted so that it is ready for analysis we will first explore the data through the use of graphs, which will allow us to see how heart failure deaths may relate to the different variables. We will then split our data into training and testing sets, create our recipe and use 10-fold cross validation. We will then implement 7 machine learning models: logistic regression, linear discriminant analysis, quadratic discriminant analysis, K-nearest neighbors, elastic net, random forests, and gradient-boosted decision trees. We will then evaluate the efficacy of the models before choosing our 2 best models to further analyze.
+
 
 ## Exploratory Data Analysis
 
@@ -65,6 +67,15 @@ library(gt)
 library(gtExtras)
 library(visdat)
 library(fastDummies)
+library(MASS)
+library(glmnet)
+library(ranger)
+library(xgboost)
+library(discrim)
+library(doParallel)
+library(themis)
+library(kableExtra)
+library(vip)
 tidymodels_prefer()
 ```
 
@@ -268,9 +279,9 @@ The first step towards the creation of our model is to first split our data into
 ```{r}
 set.seed(12)  # Set seed to keep split consistent each time
 
-# Creating initial 75/15 data split
+# Creating initial 80/20 data split
 heartfailure_split <- heartfailure_data %>%
-  initial_split(prop = 0.75, strata = "DEATH_EVENT")
+  initial_split(prop = 0.80, strata = "DEATH_EVENT")
 
 heartfailure_train <- training(heartfailure_split)  # Setting up training set
 heartfailure_test <- testing(heartfailure_split)  # Setting up testing set
@@ -292,21 +303,29 @@ For our recipe, we will use the 11 predictors that we had previously mentioned: 
 
 For the recipe to work, we will also have to convert our categorical variables into dummy variables, and these variables are: `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`.
 
-We will also have to normalize our variables by centering and scaling the recipe.
+We will also have to normalize our variables by centering and scaling the recipe. Finally, I have elected to upsample the data for `DEATH_EVENT` because of the imbalance in the number of patients who died in order to allow the model to train on both patients who died and survived.
 
 ```{r}
 # Setting up recipe
-heartfailure_recipe <- recipe(DEATH_EVENT ~., data = heartfailure_data) %>%
+heartfailure_recipe <- recipe(DEATH_EVENT ~ ., data = heartfailure_train) %>%
   step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
-  step_center(all_predictors()) %>%   
-  step_scale(all_predictors())
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_upsample(DEATH_EVENT, over_ratio = 1)
+
+prep(heartfailure_recipe) %>%
+  bake(new_data = heartfailure_train) %>%
+  head() %>%
+  kable() %>%
+  kable_styling(full_width = F) %>%
+  scroll_box(width = "100%", height = "200px")
 ```
 
 ### K-Fold Cross Validation
 For many of our models, we may want to find the best hyperparameter that would allow us to have the most accurate model on our data, this process is known as hyperparameter tuning. Here k-fold cross-validation comes in handy. When using k-fold cross validation, it is common to use 10 folds, and that is what we will do here. We will stratify on the outcome `DEATH_EVENT` in order to perform the cross validation.
 
 ```{r}
-heartfailure_folds <- vfold_cv(heartfailure_train, v = 10, starta = DEATH_EVENT)  # Create Folds
+heartfailure_folds <- vfold_cv(heartfailure_train, v = 10, strata = DEATH_EVENT)  # Create Folds
 ```
 
 
@@ -314,5 +333,719 @@ heartfailure_folds <- vfold_cv(heartfailure_train, v = 10, starta = DEATH_EVENT)
 
 Now that we have all the initial setup completed, it is time for us to finally build our models. In this case, we have chosen to try seven different models to test their effectiveness at predicting heart failure deaths. The models all utilized the same basic recipe but applied to different techniques. To empirically gauge which model worked the best, we will use **accuracy** and **ROC-AUC** as our performance metrics. ROC-AUC is effective as a metric because it allows for the evaluation of a model in cases where the data is not perfectly balanced, much like in our given data set. ROC-AUC works by calculating the area under the curve for receiver the receiver operating characteristic curve, which shows the relationship between sensitivity and 1-specificity of our models. Sensitivity is also known as the true positive rate of our model while 1-specificity is the false positive rate of our model. When we test for accuracy, we are testing for how often our model predicted the correct outcome on our testing set.
 
+The steps for building our model will be as follows: 
+
+1. Set models up, indicating parameters that will be tuned later. We will also set the mode and engine of the model in the first step.
+
+```{r}
+# Logistic Regression
+heart_log_reg <- logistic_reg() %>%
+  set_engine("glm") %>%
+  set_mode("classification")
+
+
+# KNN Model
+heart_knn_mod <- nearest_neighbor(neighbors = tune()) %>%
+  set_engine("kknn") %>%
+  set_mode("classification")
+
+# LDA
+heart_lda_mod <- discrim_linear() %>%
+  set_engine("MASS") %>%
+  set_mode("classification")
+
+# QDA
+heart_qda_mod <- discrim_quad() %>%
+  set_engine("MASS") %>%
+  set_mode("classification")
+
+# Elastic Net
+heart_en_mod <- multinom_reg(mixture = tune(), penalty = tune()) %>%
+  set_engine("glmnet") %>%
+  set_mode("classification")
+
+# Random Forest
+heart_rf_mod <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+
+# Boosted Trees
+heart_bt_mod <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+```
+
+
+2. Set up workflow and add model and recipe. 
+
+```{r}
+# Logistic Regression
+heart_log_wkflow <- workflow() %>%
+  add_model(heart_log_reg) %>%
+  add_recipe(heartfailure_recipe)
+
+
+# KNN Model
+heart_knn_wkflow <- workflow() %>%
+  add_model(heart_knn_mod) %>%
+  add_recipe(heartfailure_recipe)
+
+# LDA
+heart_lda_wkflow <- workflow() %>%
+  add_model(heart_lda_mod) %>%
+  add_recipe(heartfailure_recipe)
+
+# QDA
+heart_qda_wkflow <- workflow() %>%
+  add_model(heart_qda_mod) %>%
+  add_recipe(heartfailure_recipe)
+
+# Elastic Net
+heart_en_wkflow <- workflow() %>%
+  add_model(heart_en_mod) %>%
+  add_recipe(heartfailure_recipe)
+
+# Random Forest
+heart_rf_wkflow <- workflow() %>%
+  add_model(heart_rf_mod) %>% 
+  add_recipe(heartfailure_recipe)
+
+# Boosted Trees
+heart_bt_wkflow <- workflow() %>%
+  add_model(heart_bt_mod) %>%
+  add_recipe(heartfailure_recipe)
+```
+
+
+3. Create tuning grid to set up range of data through which we will tune the model.
+
+```{r}
+# KNN Model
+heart_neighbors_grid <- grid_regular(neighbors(range = c(1, 20)), levels = 20)
+
+# Elastic Net
+heart_en_grid <- grid_regular(penalty(range = c(0.02,3), trans = identity_trans()), mixture(range = c(0,1)), levels = 10)
+
+# Random Forest
+heart_rf_grid <- grid_regular(mtry(range = c(1, 11)),
+                              trees(range = c(50, 1000)),
+                              min_n(range = c(5, 25)), levels = 10)
+
+# Boosted Trees
+heart_bt_grid <- grid_regular(mtry(range = c(1, 11)),
+                              trees(range = c(100, 1000)),
+                              learn_rate(range = c(-10, -1)),
+                              levels = 5)
+```
+
+
+4. Tune model to find best fit for data and save models as rds.
+```{r, eval = FALSE}
+registerDoParallel(cores = 6)
+
+# KNN Tuning
+heart_tune_res_knn <- tune_grid(
+  object = heart_knn_wkflow,
+  resamples = heartfailure_folds,
+  grid = heart_neighbors_grid,
+  control = control_grid(verbose = TRUE)
+)
+
+# Elastic Net Tuning
+heart_tune_res_en <- tune_grid(
+  object = heart_en_wkflow,
+  resamples = heartfailure_folds,
+  grid = heart_en_grid,
+  control = control_grid(verbose = TRUE)
+)
+
+# Random Forest Tuning
+heart_tune_res_rf <- tune_grid(
+  object = heart_rf_wkflow,
+  resamples = heartfailure_folds,
+  grid = heart_rf_grid,
+  control = control_grid(verbose = TRUE)
+)
+
+# Boosted Trees Tuning
+heart_tune_res_bt <- tune_grid(
+  object = heart_bt_wkflow,
+  resamples = heartfailure_folds,
+  grid = heart_bt_grid,
+  control = control_grid(verbose = TRUE)
+)
+
+# Writing results to rds files
+# KNN Model
+write_rds(heart_tune_res_knn, file = "heart_knn.rds")
+
+# Elastic Net
+write_rds(heart_tune_res_en, file = "heart_en.rds")
+
+# Random Forest
+write_rds(heart_tune_res_rf, file = "heart_rf.rds")
+
+# Boosted Trees
+write_rds(heart_tune_res_bt, file = "heart_bt.rds")
+```
+
+
+5. Load tuned model back in
+
+```{r}
+# Load in tuned KNN
+heart_knn_tuned <- read_rds(file = "heart_knn.rds")
+
+# Load in tuned Elastic Net
+heart_en_tuned <- read_rds(file = "heart_en.rds")
+
+# Load in tuned Random Forest
+heart_rf_tuned <- read_rds(file = "heart_rf.rds")
+
+# Load in tuned Boosted Trees
+heart_bt_tuned <- read_rds(file = "heart_bt.rds")
+
+```
+
+
+6. Perform analysis on data to determine which model fit best for data.
+
+```{r}
+# Collect Metrics
+# KNN
+best_knn <- show_best(heart_knn_tuned, metric = "roc_auc")
+
+# Elastic Net 
+best_en <- show_best(heart_en_tuned, metric = "roc_auc")
+
+# Random Forest
+best_rf <- show_best(heart_rf_tuned, metric = "roc_auc")
+
+# Gradient-Boosted Trees
+best_bt <- show_best(heart_bt_tuned, metric = "roc_auc")
+```
+
+
+## Model Evaluation
+
+### K-Nearest Neighbor Plots
+```{r}
+# KNN Autoplot
+autoplot(heart_knn_tuned)
+```
+
+For the KNN Plot, we see that increasing the number of neighbors increases the ROC AUC but we also see that the accuracy of the model does not become better after 5 neighbors. However, when compared to our other models, we also see that the best ROC AUC is lower so it may not be the best model for the purposes of predicting heart failure deaths.
+
+
+### Elastic Net Plots
+
+```{r}
+# Elastic Net Autoplot
+autoplot(heart_en_tuned, metric = "roc_auc")
+```
+
+From our Elastic Net Plot, we are able to tune the proportion of lasso penalty and the amount of regularization. From the plot, we are able to see that models with lower lasso penalty proportions tend to have higher ROC AUC values. We are also able to see that as the amount of regularization increases, we also tend to see models with lower ROC AUC values. From the different models we tuned on we see that the ideal combiantion for the best mean ROC AUC value is a penalty if 0.341 amd a mixture of 0, meaning 0.351 for the lasso penalty and no regularization.
+
+### Random Forest Plots
+
+```{r}
+# Random Forest Autoplot
+autoplot(heart_rf_tuned, metric = "roc_auc")
+```
+
+For Random Forest models, we are able to tune three hyperparameters: the minimum size of a node through `min_n`, the number of trees through `trees`, and the number of randomly sampled predictors through `mtry`. From the plot, we see that there appears to be a large range of ROC AUC values that are obtained based on the different numbers. It appears that increasing the minimum node size tends to increase the ROC AUC values of the models. Having low numbers of randomly selected predictors also appears to increase model performance. From our different models, the random forest with the best performance was the model that randomly sampled 1 predictor, had a model with 155 trees and had a minimum node size of 20.
+
+### Gradient-Boosted Trees Plots
+
+```{r}
+# Gradient-Boosted Trees Autoplot
+autoplot(heart_bt_tuned, metric = "roc_auc")
+```
+
+For Gradient-Boosted trees, we are able to tune the learning rate (`learn_rate`), number of trees (`trees`), and the number of randomly selected predictors (`min_n`). We can see that with an extremely low learning rate, the model did quite poorly. However, it appears that with higher learnign rates, the performance of the model significantly improves and for the most part, models perform quite well despite the number of trees used in the model. We also see that as the number of randomly selected predictors increase, we tend to get decreasing performance of the model for gradient-boosted trees. The best we fit appears to be the model with 1 randomly selected predictor, 775 trees, and a learn rate of 0.000562.
+
+
+```{r}
+# Selecting best models and applying them to workflow
+# KNN
+best_heart_neighbors <- select_best(heart_tune_res_knn,
+                                    desc(neighbors),
+                                    metric = "roc_auc")
+
+final_heart_knn_model <- finalize_workflow(heart_knn_wkflow, best_heart_neighbors)
+
+
+# Elastic Net
+best_heart_en <- select_best(heart_tune_res_en,
+                             metric = "roc_auc",
+                             penalty,
+                             mixture)
+
+final_heart_en_model <- finalize_workflow(heart_en_wkflow, best_heart_en)
+
+
+# Random Forest
+best_heart_rf <- select_best(heart_tune_res_rf, metric = "roc_auc")
+
+final_heart_rf_model <- finalize_workflow(heart_rf_wkflow, best_heart_rf)
+
+
+# Gradient-Boosted Trees
+best_heart_bt <- select_best(heart_tune_res_bt, metric = "roc_auc")
+
+final_heart_bt_model <- finalize_workflow(heart_bt_wkflow, best_heart_bt)
+```
+
+
+```{r}
+# Fit models together
+# Logistic Regression
+heart_log_fit <- fit(heart_log_wkflow, heartfailure_train)
+
+# KNN Model
+heart_knn_fit <- fit(final_heart_knn_model, heartfailure_train)
+
+# LDA
+heart_lda_fit <- fit(heart_lda_wkflow, heartfailure_train)
+
+# QDA
+heart_qda_fit <- fit(heart_qda_wkflow, heartfailure_train)
+
+# Elastic Net
+heart_en_fit <- fit(final_heart_en_model, heartfailure_train)
+
+# Random Forest
+heart_rf_fit <- fit(final_heart_rf_model, heartfailure_train)
+
+# Boosted Trees
+heart_bt_fit <- fit(final_heart_bt_model, heartfailure_train)
+
+```
+
+### ROC AUC of Various Models
+
+In the table below, we summarize the ROC AUC of each model on the training data. We see that the top two models in our case in terms of ROC AUC were random forest models and Gradient-Boosted Trees so we will select those two methods as models that we will fit on our testing data and further analyze.
+
+```{r}
+# Evaluating ROC AUC of different models
+# Logistic Regression
+heart_log_train_results <- augment(heart_log_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# KNN Model
+heart_knn_train_results <- augment(heart_knn_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+  
+# LDA
+heart_lda_train_results <- augment(heart_lda_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# QDA
+heart_qda_train_results <- augment(heart_qda_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# Elastic Net
+heart_en_train_results <- augment(heart_en_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# Random Forest
+heart_rf_train_results <- augment(heart_rf_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# Boosted Trees
+heart_bt_train_resutls <- augment(heart_bt_fit, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+```
+
+```{r}
+heart_models <- c("Logistic Regression", "K-Nearest Neighbor", "Linear Discriminant Analysis", "Quadratic Discriminant Analysis", "Elastic Net", "Random Forest", "Gradient-Boosted Trees")
+
+heart_model_roc_auc <- c(heart_log_train_results$.estimate, heart_knn_train_results$.estimate, heart_lda_train_results$.estimate, heart_qda_train_results$.estimate, heart_en_train_results$.estimate, heart_rf_train_results$.estimate, heart_bt_train_resutls$.estimate)
+
+heart_train_results <- tibble(Model = heart_models, ROC_AUC = heart_model_roc_auc) %>% 
+  arrange(-heart_model_roc_auc) %>%
+  gt() %>%
+  tab_header(title = "ROC AUC Values of Different Models") %>%
+  gt_theme_nytimes()
+
+heart_train_results 
+```
+
+## Fitting Testing Data to Models
+
+Now that we have chosen random forests and boosted-gradient trees as our two best models, we will fit testing data to them and analyze their results. After fittign the testing data, we are then able to observe the ROC AUC of the model on testing data. We see that as with the training set, our random forest model performed slightly better than our gradient-boosted trees model with an ROC AUC value of 0.746 compared to 0.734 respectively. Conversely, we see that the accuracy of gradient-boosted trees (73.4%) is slightly higher than for random forests (70.5%).
+
+```{r}
+tibble(Model = c("Random Forest", "Gradient-Boosted Trees"), ROC_AUC = c(heart_rf_roc_auc$.estimate, heart_bt_roc_auc$.estimate), Accuracy = c(heart_rf_accuracy$.estimate, heart_bt_accuracy$.estimate)) %>%
+  gt() %>%
+  tab_header(title = "Performance Metrics of Tested Models") %>%
+  gt_theme_nytimes()
+```
+
+
+### Random Forest
+```{r}
+# ROC AUC Plot
+# Random Forest
+heart_rf_roc_auc <- augment(heart_rf_fit, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+heart_rf_accuracy <- augment(heart_rf_fit, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+final_rf_model_test <- augment(heart_rf_fit, heartfailure_test)
+```
+
+From the confusion matrix below, we are able to see how our random forest actually did on our model in terms of prediciton. We see that 
+```{r}
+conf_mat(final_rf_model_test, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+```
+
+
+```{r}
+augment(heart_knn_fit, new_data = heartfailure_test) %>%
+  roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
+  autoplot() 
+```
+
+### Gradient-Boosted Trees
+```{r}
+heart_bt_accuracy <- augment(heart_bt_fit, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_roc_auc <- augment(heart_bt_fit, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+```
+
+
+### Variable Importance Plot
+
+```{}
+heart_rf_fit %>%
+  extract_fit_engine() %>%
+  vip(aesthetics = list(fill = "green", color = "pink"))
+```
+
+## Result of Top Performing Models 
+From 
+
+
+## Fine Tuning Model
+
+## Attempt 2:
+```{r, eval=FALSE}
+heartfailure_recipe2 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction, data = heartfailure_train) %>%
+  step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_upsample(DEATH_EVENT, over_ratio = 1)
+
+
+# Random Forest
+heart_rf_mod2 <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+
+
+# Boosted Trees
+heart_bt_mod2 <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+
+
+# Random Forest
+heart_rf_wkflow2 <- workflow() %>%
+  add_model(heart_rf_mod2) %>% 
+  add_recipe(heartfailure_recipe2)
+
+# Boosted Trees
+heart_bt_wkflow2 <- workflow() %>%
+  add_model(heart_bt_mod2) %>%
+  add_recipe(heartfailure_recipe2)
+
+
+# Random Forest
+heart_rf_grid2 <- grid_regular(mtry(range = c(1, 2)),
+                              trees(range = c(50, 1000)),
+                              min_n(range = c(5, 25)), levels = 10)
+
+
+# Boosted Trees
+heart_bt_grid2 <- grid_regular(mtry(range = c(1, 2)),
+                              trees(range = c(500, 1000)),
+                              learn_rate(range = c(-10, -1)),
+                              levels = 10)
+
+# Random Forest Tuning
+heart_tune_res_rf2 <- tune_grid(
+  object = heart_rf_wkflow2,
+  resamples = heartfailure_folds,
+  grid = heart_rf_grid2,
+  control = control_grid(verbose = TRUE)
+)
+
+
+# Boosted Trees Tuning
+heart_tune_res_bt2 <- tune_grid(
+  object = heart_bt_wkflow2,
+  resamples = heartfailure_folds,
+  grid = heart_bt_grid2,
+  control = control_grid(verbose = TRUE)
+)
+
+
+# Writing results to rds files
+# Random Forest
+write_rds(heart_tune_res_rf2, file = "heart_rf.rds2")
+
+
+# Boosted Trees
+write_rds(heart_tune_res_bt2, file = "heart_bt.rds2")
+
+```
+
+```{r}
+# Load in tuned Random Forest
+heart_rf_tuned2 <- read_rds(file = "heart_rf.rds2")
+
+
+# Load in tuned Boosted Trees
+heart_bt_tuned2 <- read_rds(file = "heart_bt.rds2")
+
+
+# Random Forest
+show_best(heart_rf_tuned2, metric = "roc_auc")
+
+
+# Gradient-Boosted Trees
+show_best(heart_bt_tuned2, metric = "roc_auc")
+
+
+# Random Forest
+best_heart_rf2 <- select_best(heart_tune_res_rf2, metric = "roc_auc")
+
+final_heart_rf_model2 <- finalize_workflow(heart_rf_wkflow2, best_heart_rf2)
+
+
+
+# Gradient-Boosted Trees
+best_heart_bt2 <- select_best(heart_tune_res_bt2, metric = "roc_auc")
+
+final_heart_bt_model2 <- finalize_workflow(heart_bt_wkflow2, best_heart_bt2)
+
+
+# Random Forest
+heart_rf_fit2 <- fit(final_heart_rf_model2, heartfailure_train)
+
+
+# Boosted Trees
+heart_bt_fit2 <- fit(final_heart_bt_model2, heartfailure_train)
+
+
+# Random Forest
+heart_rf_train_results2 <- augment(heart_rf_fit2, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+
+# Boosted Trees
+heart_bt_train_resutls2 <- augment(heart_bt_fit2, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+
+# Random Forest
+heart_rf_train_results2
+
+
+# Boosted Trees
+heart_bt_train_resutls2
+
+
+heart_rf_roc_auc2 <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+heart_rf_accuracy2 <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_accuracy2 <- augment(heart_bt_fit2, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_roc_auc2 <- augment(heart_bt_fit2, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+final_rf_model_test2 <- augment(heart_rf_fit2, heartfailure_test)
+
+conf_mat(final_rf_model_test2, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+
+heart_rf_roc_auc2 <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+```
+
+
+
+## Attempt 3:
+
+```{r, eval=FALSE}
+
+heartfailure_recipe3 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction + serum_sodium, data = heartfailure_train) %>%
+  step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors()) %>%
+  step_upsample(DEATH_EVENT, over_ratio = 1)
+
+# Random Forest
+
+
+heart_rf_mod3 <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification")
+
+
+# Boosted Trees
+
+
+heart_bt_mod3 <- boost_tree(mtry = tune(), trees = tune(), learn_rate = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
+
+# Random Forest
+
+
+heart_rf_wkflow3 <- workflow() %>%
+  add_model(heart_rf_mod3) %>% 
+  add_recipe(heartfailure_recipe3)
+
+# Boosted Trees
+
+
+heart_bt_wkflow3 <- workflow() %>%
+  add_model(heart_bt_mod3) %>%
+  add_recipe(heartfailure_recipe3)
+
+# Random Forest
+
+
+heart_rf_grid3 <- grid_regular(mtry(range = c(1, 3)),
+                              trees(range = c(50, 1000)),
+                              min_n(range = c(5, 25)), levels = 10)
+
+# Boosted Trees
+
+heart_bt_grid3 <- grid_regular(mtry(range = c(1, 3)),
+                              trees(range = c(500, 1000)),
+                              learn_rate(range = c(-10, -1)),
+                              levels = 10)
+
+# Random Forest Tuning
+
+
+heart_tune_res_rf3 <- tune_grid(
+  object = heart_rf_wkflow3,
+  resamples = heartfailure_folds,
+  grid = heart_rf_grid3,
+  control = control_grid(verbose = TRUE)
+)
+
+# Boosted Trees Tuning
+
+heart_tune_res_bt3 <- tune_grid(
+  object = heart_bt_wkflow3,
+  resamples = heartfailure_folds,
+  grid = heart_bt_grid3,
+  control = control_grid(verbose = TRUE)
+)
+
+# Writing results to rds files
+# Random Forest
+
+write_rds(heart_tune_res_rf3, file = "heart_rf.rds3")
+
+# Boosted Trees
+
+write_rds(heart_tune_res_bt3, file = "heart_bt.rds3")
+```
+
+```{r}
+# Load in tuned Random Forest
+
+heart_rf_tuned3 <- read_rds(file = "heart_rf.rds3")
+
+# Load in tuned Boosted Trees
+
+heart_bt_tuned3 <- read_rds(file = "heart_bt.rds3")
+
+# Random Forest
+
+show_best(heart_rf_tuned3, metric = "roc_auc")
+
+# Gradient-Boosted Trees
+
+show_best(heart_bt_tuned3, metric = "roc_auc")
+
+# Random Forest
+
+
+best_heart_rf3 <- select_best(heart_tune_res_rf3, metric = "roc_auc")
+
+final_heart_rf_model3 <- finalize_workflow(heart_rf_wkflow3, best_heart_rf2)
+
+
+# Gradient-Boosted Trees
+best_heart_bt3 <- select_best(heart_tune_res_bt3, metric = "roc_auc")
+
+final_heart_bt_model3 <- finalize_workflow(heart_bt_wkflow3, best_heart_bt3)
+
+# Random Forest
+heart_rf_fit3 <- fit(final_heart_rf_model3, heartfailure_train)
+
+# Boosted Trees
+heart_bt_fit3 <- fit(final_heart_bt_model3, heartfailure_train)
+
+# Random Forest
+
+heart_rf_train_results3 <- augment(heart_rf_fit3, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# Boosted Trees
+
+heart_bt_train_resutls3 <- augment(heart_bt_fit3, new_data = heartfailure_train) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+# Random Forest
+
+heart_rf_train_results3
+
+# Boosted Trees
+
+heart_bt_train_resutls3
+
+heart_rf_roc_auc3 <- augment(heart_rf_fit3, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+
+heart_rf_accuracy3 <- augment(heart_rf_fit3, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_accuracy3 <- augment(heart_bt_fit3, new_data = heartfailure_test) %>%
+  accuracy(DEATH_EVENT, estimate = .pred_class)
+
+heart_bt_roc_auc3 <- augment(heart_bt_fit3, new_data = heartfailure_test) %>%
+  roc_auc(DEATH_EVENT, estimate = .pred_1)
+
+final_rf_model_test3 <- augment(heart_rf_fit3, heartfailure_test)
+
+conf_mat(final_rf_model_test3, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+```
+
+```{r}
+
+```
+
+## Conclusion
 
 ## References
