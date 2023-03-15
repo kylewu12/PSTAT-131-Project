@@ -76,6 +76,7 @@ library(doParallel)
 library(themis)
 library(kableExtra)
 library(vip)
+library(gridExtra)
 tidymodels_prefer()
 ```
 
@@ -102,7 +103,7 @@ dim(heartfailure_data)
 
 We can see that our data set has 299 observations to go along with 13 variables. Let us now take a look at a summary of our variables:
 
-```{r, message = FALSE}
+```{r, message = FALSE, fig.cap= "Figure showing variables along with variable type."}
 vis_dat(heartfailure_data)
 ```
 
@@ -155,10 +156,10 @@ Now we are left with the following variables which will be utilized for the mach
 
 We will first look at the distribution of heart failure deaths
 
-```{r}
-ggplot(heartfailure_data, aes(x = as.factor(DEATH_EVENT), fill = "pink")) + 
+```{r, fig.cap="Bar plot showing distribution of patient outcomes with 1 indicating patient died and 0 indicating patient did not die."}
+ggplot(heartfailure_data, aes(x = as.factor(DEATH_EVENT), fill = "hotpink")) + 
   geom_bar() + 
-  scale_fill_manual(values = "pink") +
+  scale_fill_manual(values = "hotpink") +
   labs(title = "Distribution of Heart Failure Deaths", x = "Death Event", y = "Count") +
   theme(legend.position = "none")
 ```
@@ -169,7 +170,7 @@ From the histogram, we see that most of the patients in the study did not die du
 
 To see if there is any correlation between our numeric variables, we will now make a correlation heat map of the correlation between the predictors.
 
-```{r}
+```{r, fig.cap= "Correlation plot of continuous variables"}
 heartfailcorr <- heartfailure_data %>% 
   select(where(is.numeric)) %>%
   cor() %>%
@@ -182,10 +183,10 @@ From the heat map, we see that there is little to no correlation between all of 
 
 It is often the case that older patients are more likely to die from medical conditions that may arise. From the box plot shown, we see that with heart failure, this is indeed the case. We see that the age of patients who died over the course of the study tended to lean quite a bit higher than for patients who did not die. Both the median age for the patients who died and the 75th percentile for patients who did not die was 65. The median age for patients who did not die was 60 years old.
 
-```{r}
+```{r, fig.cap="Box plot showing distribution of patient age by patient outcomes."}
 ggplot(data = heartfailure_data, aes(x = age, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() +
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Age Distribution of Patients who Lived/Died during Study", x = "Age", fill = "Death Event") 
 ```
 
@@ -194,7 +195,7 @@ ggplot(data = heartfailure_data, aes(x = age, group = DEATH_EVENT, fill = DEATH_
 This data set was comprised of 105 women and 194 men. From the data, we also find that 31.96% of men and 32.38% of women in the data set died during the duration of the study.
 
 
-```{r}
+```{r, fig.cap="Bar plot showing distribution of patient sex and deaths by sex."}
 # make bar plot with sex distribution and likelihood of death by sex involved
 
 sex_renamed <- heartfailure_data
@@ -203,7 +204,7 @@ levels(sex_renamed$sex)[levels(sex_renamed$sex) == "1"] <- "Male"
 
 ggplot(data = sex_renamed, aes(x = sex, group = DEATH_EVENT, fill = DEATH_EVENT)) + 
   geom_bar() + 
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Distribution of Sex", y = "Count", fill = "Death Event")
 ```
 
@@ -211,10 +212,10 @@ ggplot(data = sex_renamed, aes(x = sex, group = DEATH_EVENT, fill = DEATH_EVENT)
 
 Creatinine Phosphokinase (CPK) is often released into the blood when muscle tissue gets damaged, making it a relatively good metric upon which heart failure can be diagnosed [@creatinine2019]. Depending on factors such as age, gender, and activity level, generally, 24-204 U/L is considered normal [@cpknorm]. Since all patients in the study were already experiencing heart failure and fell into NYHA classification levels III and IV, we would expect their CPK levels to be higher than the average population. We find that the average CPK levels for patients who died was 670 while average CPK levels for those who did not die was 540.
 
-```{r}
+```{r, fig.cap="Box plot showing distribution of creatinine phosphokinase by patient outcomes."}
 ggplot(data = heartfailure_data, aes(x = creatinine_phosphokinase, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Creatinine Phosphokinase Distribution of Patients", x = "Creatinine Phosphokinase Levels (IU/L)", fill = "Death Event") 
 ```
 
@@ -222,10 +223,10 @@ ggplot(data = heartfailure_data, aes(x = creatinine_phosphokinase, group = DEATH
 
 Ejection fraction is a measure of the percentage of blood that the ventricles pump out upon each contraction, and a lower fraction would mean that an individual's heart was having difficulty keeping up with the body's needs and would be a strong indication of heart failure. A healthy male would have an ejection fraction in the range of 52%-72% and a healthy woman would have an ejection fraction in the range of 54%-74%, with values lower than that indicating patients in progressively worse conditions [@ejection2022]. Since all patients were either in the NYHA classification levels III or IV, we would expect that ejection fractions would likely be lower than expected for the average population; however, we also see that the distribution of ejection fraction for patients who died due to heart failure is lower than that of patients who did not die over the duration of the study.
 
-```{r}
+```{r, fig.cap="Box plot showing distribution of ejection fraction by patient outcomes."}
 ggplot(data = heartfailure_data, aes(x = ejection_fraction, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Ejection Fraction Distribution of Patients", x = "Ejection Fraction", fill = "Death Event") 
 ```
 
@@ -233,12 +234,12 @@ ggplot(data = heartfailure_data, aes(x = ejection_fraction, group = DEATH_EVENT,
 
 A normal platelet count ranges from 150,000 to 450,000 platelets per micro liter of blood [@platelet1]. Research has shown that patients with thrombocytopaenia, or a low platelet count may be linked to higher rates of all-cause mortality [@platelet2]. From the plots, it appears that most patients fall within the normal platelet count level and no differences are immediately noticeable by eye.
 
-```{r}
+```{r, fig.cap="Box plot showing distribution of platelet count by patient outcomes."}
 options(scipen = 999)
 
 ggplot(data = heartfailure_data, aes(x = platelets, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Platelet Count Distribution of Patients", x = "Platelet Count (platelets/mcL)", fill = "Death Event") 
 ```
 
@@ -247,10 +248,10 @@ ggplot(data = heartfailure_data, aes(x = platelets, group = DEATH_EVENT, fill = 
 
 Serum Creatinine is a waste product of creatinine, a chemical made by the body that is used to supply energy to muscles. Normal results are 0.7 t0 1.3 mg/dL for men and 0.6 to 1.1 mg/dL for women [@serumc2021]. Serum creatinine above 1.5 mg/dL is associated with renal failure [@survive2017]. There is evidence that chronic kidney disease contributes to cardiac damage and that heart failure is also a major cause of chronic kidney disease [@serumc2004]. We see from the data that patients who died tended to have higher serum creatinine levels, which indicates that their kidneys would likely have been performing sub-optimally. 
 
-```{r}
+```{r, fig.cap="Box plot showing distribution of serum creatinine by patient outcomes."}
 ggplot(data = heartfailure_data, aes(x = serum_creatinine, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Serum Creatinine Distribution of Patients", x = "Serum Creatinine (mg/dL)", fill = "Death Event") 
 ```
 
@@ -259,10 +260,10 @@ ggplot(data = heartfailure_data, aes(x = serum_creatinine, group = DEATH_EVENT, 
 
 The normal range for serum sodium is between 135 and 145 milliequivalents per liter (mEq/L) [@mayo2]. It appears that in general, patients who died over the duration of the study tended to have lower serum sodium levels than patients who did not die, so perhaps that could have indicated further progression of heart failure. Having low serum sodium levels, called hyponatremia is an indicator of heart failure, as it can cause fluids to accumulate in the body, which would dilute sodium in the body.
 
-```{r}
+```{r, fig.cap="Box plot showing distribution of serum sodium by patient outcomes."}
 ggplot(data = heartfailure_data, aes(x = serum_sodium, group = DEATH_EVENT, fill = DEATH_EVENT)) +
   geom_boxplot() + 
-  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "pink")) +
+  scale_fill_manual(labels = c("Patient Did Not Die", "Patient Died"), values = c("lightblue", "hotpink")) +
   labs(title = "Serum Sodium Distribution of Patients", x = "Serum Sodium (mEql/L)", fill = "Death Event") 
 ```
 
@@ -303,7 +304,7 @@ For our recipe, we will use the 11 predictors that we had previously mentioned: 
 
 For the recipe to work, we will also have to convert our categorical variables into dummy variables, and these variables are: `anaemia`, `diabetes`, `high_blood_pressure`, `sex`, `smoking`.
 
-We will also have to normalize our variables by centering and scaling the recipe. Finally, I have elected to upsample the data for `DEATH_EVENT` because of the imbalance in the number of patients who died in order to allow the model to train on both patients who died and survived.
+We will also have to normalize our variables by centering and scaling the recipe. Finally, I elected to up sample the data for `DEATH_EVENT` because of the imbalance in the number of patients who died in order to allow the model to train on both patients who died and survived. Up sampling data thus allows the model to train on both patients who died and did not die to get a better understanding of the patterns that we may see between patients with different outcomes.
 
 ```{r}
 # Setting up recipe
@@ -530,35 +531,35 @@ best_bt <- show_best(heart_bt_tuned, metric = "roc_auc")
 ## Model Evaluation
 
 ### K-Nearest Neighbor Plots
-```{r}
+```{r, fig.cap="Graph showing efficacy of various K-Nearest Neighbor models."}
 # KNN Autoplot
 autoplot(heart_knn_tuned)
 ```
 
-For the KNN Plot, we see that increasing the number of neighbors increases the ROC AUC but we also see that the accuracy of the model does not become better after 5 neighbors. However, when compared to our other models, we also see that the best ROC AUC is lower so it may not be the best model for the purposes of predicting heart failure deaths.
+For the KNN Plot, we see that increasing the number of neighbors increases the AUC-ROC but we also see that the accuracy of the model does not become better after 5 neighbors. However, when compared to our other models, we also see that the best AUC-ROC is lower so it may not be the best model for the purposes of predicting heart failure deaths.
 
 
 ### Elastic Net Plots
 
-```{r}
+```{r, "Graph showing efficacy of various elastic net models."}
 # Elastic Net Autoplot
 autoplot(heart_en_tuned, metric = "roc_auc")
 ```
 
-From our Elastic Net Plot, we are able to tune the proportion of lasso penalty and the amount of regularization. From the plot, we are able to see that models with lower lasso penalty proportions tend to have higher ROC AUC values. We are also able to see that as the amount of regularization increases, we also tend to see models with lower ROC AUC values. From the different models we tuned on we see that the ideal combiantion for the best mean ROC AUC value is a penalty if 0.341 amd a mixture of 0, meaning 0.351 for the lasso penalty and no regularization.
+From our Elastic Net Plot, we are able to tune the proportion of lasso penalty and the amount of regularization. From the plot, we are able to see that models with lower lasso penalty proportions tend to have higher AUC-ROC values. We are also able to see that as the amount of regularization increases, we also tend to see models with lower AUC-ROC values. From the different models we tuned on we see that the ideal combiantion for the best mean AUC-ROC value is a penalty if 0.351 and a mixture of 0, meaning 0.351 for the lasso penalty and no regularization.
 
 ### Random Forest Plots
 
-```{r}
+```{r, fig.cap="Graphs showing efficacy of various random forest models."}
 # Random Forest Autoplot
 autoplot(heart_rf_tuned, metric = "roc_auc")
 ```
 
-For Random Forest models, we are able to tune three hyperparameters: the minimum size of a node through `min_n`, the number of trees through `trees`, and the number of randomly sampled predictors through `mtry`. From the plot, we see that there appears to be a large range of ROC AUC values that are obtained based on the different numbers. It appears that increasing the minimum node size tends to increase the ROC AUC values of the models. Having low numbers of randomly selected predictors also appears to increase model performance. From our different models, the random forest with the best performance was the model that randomly sampled 1 predictor, had a model with 155 trees and had a minimum node size of 20.
+For Random Forest models, we are able to tune three hyperparameters: the minimum size of a node through `min_n`, the number of trees through `trees`, and the number of randomly sampled predictors through `mtry`. From the plot, we see that there appears to be a large range of AUC-ROC values that are obtained based on the different numbers. It appears that increasing the minimum node size tends to increase the AUC-ROC values of the models. Having low numbers of randomly selected predictors also appears to increase model performance. From our different models, the random forest with the best performance was the model that randomly sampled 1 predictor, had a model with 155 trees and had a minimum node size of 20.
 
 ### Gradient-Boosted Trees Plots
 
-```{r}
+```{r, fig.cap="Graphs displaying efficacy of various gradient-boosted tree models"}
 # Gradient-Boosted Trees Autoplot
 autoplot(heart_bt_tuned, metric = "roc_auc")
 ```
@@ -623,12 +624,12 @@ heart_bt_fit <- fit(final_heart_bt_model, heartfailure_train)
 
 ```
 
-### ROC AUC of Various Models
+### AUC-ROC of Various Models
 
-In the table below, we summarize the ROC AUC of each model on the training data. We see that the top two models in our case in terms of ROC AUC were random forest models and Gradient-Boosted Trees so we will select those two methods as models that we will fit on our testing data and further analyze.
+In the table below, we summarize the AUC-ROC of each model on the training data. We see that the top two models in our case in terms of AUC-ROC were random forest models and Gradient-Boosted Trees so we will select those two methods as models that we will fit on our testing data and further analyze.
 
 ```{r}
-# Evaluating ROC AUC of different models
+# Evaluating AUC-ROC of different models
 # Logistic Regression
 heart_log_train_results <- augment(heart_log_fit, new_data = heartfailure_train) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
@@ -666,7 +667,7 @@ heart_model_roc_auc <- c(heart_log_train_results$.estimate, heart_knn_train_resu
 heart_train_results <- tibble(Model = heart_models, ROC_AUC = heart_model_roc_auc) %>% 
   arrange(-heart_model_roc_auc) %>%
   gt() %>%
-  tab_header(title = "ROC AUC Values of Different Models") %>%
+  tab_header(title = "AUC-ROC Values of Different Models") %>%
   gt_theme_nytimes()
 
 heart_train_results 
@@ -674,7 +675,7 @@ heart_train_results
 
 ## Fitting Testing Data to Models
 
-Now that we have chosen random forests and boosted-gradient trees as our two best models, we will fit testing data to them and analyze their results. After fittign the testing data, we are then able to observe the ROC AUC of the model on testing data. We see that as with the training set, our random forest model performed slightly better than our gradient-boosted trees model with an ROC AUC value of 0.746 compared to 0.734 respectively. Conversely, we see that the accuracy of gradient-boosted trees (73.4%) is slightly higher than for random forests (70.5%).
+Now that we have chosen random forests and boosted-gradient trees as our two best models, we will fit testing data to them and analyze their results. After fitting the testing data, we are then able to observe the AUC-ROC of the model on testing data. We see that as with the training set, our random forest model performed slightly better than our gradient-boosted trees model with an AUC-ROC value of 0.746 compared to 0.734 respectively. Conversely, we see that the accuracy of gradient-boosted trees (73.8%) is slightly higher than for random forests (70.5%).
 
 ```{r}
 tibble(Model = c("Random Forest", "Gradient-Boosted Trees"), ROC_AUC = c(heart_rf_roc_auc$.estimate, heart_bt_roc_auc$.estimate), Accuracy = c(heart_rf_accuracy$.estimate, heart_bt_accuracy$.estimate)) %>%
@@ -686,7 +687,7 @@ tibble(Model = c("Random Forest", "Gradient-Boosted Trees"), ROC_AUC = c(heart_r
 
 ### Random Forest
 ```{r}
-# ROC AUC Plot
+# AUC-ROC Plot
 # Random Forest
 heart_rf_roc_auc <- augment(heart_rf_fit, new_data = heartfailure_test) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
@@ -698,13 +699,13 @@ final_rf_model_test <- augment(heart_rf_fit, heartfailure_test)
 ```
 
 From the confusion matrix below, we are able to see how our random forest actually did on our model in terms of prediction. We see that the model has a false positive rate about 13.1% of the time and a false negative rate about 16.4% of the time. As shown earlier, this model has an accuracy of 70.5%. It is important to note, however, that our testing set is quite small at only 61 values, meaning that accuracy is very sensitive depending on the results of the model.
-```{r}
+```{r, fig.cap="Confusion Matrix for full random forest model."}
 conf_mat(final_rf_model_test, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
 ```
 
-In the figure below, we plot the ROC curve. The more the ROC curve goes up and to the left, the better the model. Although this model does not follow that trajectory fully, its shape and the ROC AUC value of 0.746 still indicate a model that is relatively efficient at predicting the heart failure outcome of patients.
+In the figure below, we plot the ROC curve. The more the ROC curve goes up and to the left, the better the model. Although this model does not follow that trajectory fully, its shape and the AUC-ROC value of 0.746 still indicate a model that is relatively efficient at predicting the heart failure outcome of patients.
 
-```{r}
+```{r, fig.cap="ROC curve for full random forest model."}
 augment(heart_rf_fit, new_data = heartfailure_test) %>%
   roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
   autoplot() 
@@ -719,18 +720,18 @@ heart_bt_roc_auc <- augment(heart_bt_fit, new_data = heartfailure_test) %>%
   roc_auc(DEATH_EVENT, estimate = .pred_1)
 ```
 
-The confusion matrix below breaks down the predictions made by the Gradient-Boosted Trees model. Again, it is important to note that accuracy may be signifcantly affected purely because of the low number of observations in teh training set, but this model exhibited 73.4% accuracy on the testing data.
+The confusion matrix below breaks down the predictions made by the Gradient-Boosted Trees model. Again, it is important to note that accuracy may be significantly affected purely because of the low number of observations in the training set, but this model exhibited 73.8% accuracy on the testing data.
 
 
-```{r}
+```{r, fig.cap="Confusion Matrix for full gradient-boosted trees model."}
 final_bt_model_test <- augment(heart_bt_fit, heartfailure_test)
 
 conf_mat(final_bt_model_test, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
 ```
 
-Below, we see the ROC curve plotted for the gradient-boosted trees model. The model had an ROC AUC of 0.734, and while not perfect, demonstrates the general shape that we want to see from the ROC curve.
+Below, we see the ROC curve plotted for the gradient-boosted trees model. The model had an AUC-ROC of 0.734, and while not perfect, demonstrates the general shape that we want to see from the ROC curve.
 
-```{r}
+```{r, fig.cap="ROC curve for full gradient-boosted trees model."}
 augment(heart_bt_fit, new_data = heartfailure_test) %>%
   roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
   autoplot()
@@ -739,12 +740,19 @@ augment(heart_bt_fit, new_data = heartfailure_test) %>%
 
 ### Variable Importance Plot
 
-When creating a random forest model, we are able to create a variable importance plot, which allows us to visualize which variables were most effective in improving the model. We are able to see that variables which were dummy coded (high blood pressure, diabetes, smoking, and sex) appear to have relatively small effects in predicting the outcome of heart failure patients. We are also able to see the ranking of the importance of the variables in the plot with the variable most useful in improving the model at the top. 
+When creating a random forest model and gradient-boosted tree models, we are able to create variable importance plots, which allows us to visualize which variables were most effective in improving the model. We are able to see that variables which were dummy coded (high blood pressure, diabetes, smoking, and sex) appear to have relatively small effects in predicting the outcome of heart failure patients. We also see the ranking of the importance of the variables in the plot with the variable most useful in improving the model at the top. 
 
-```{r}
-heart_rf_fit %>%
+```{r, fig.cap="Variable Importance Plot for Random Forest Algorithm (Top) and Gradient-Boosted Trees (Bottom) using Gini Impurity"}
+
+rf_vip <- heart_rf_fit %>%
   extract_fit_engine() %>%
-  vip(aesthetics = list(fill = "pink", color = "lightblue"))
+  vip(aesthetics = list(fill = "hotpink", color = "lightblue"))
+
+bt_vip <- heart_bt_fit %>%
+  extract_fit_engine() %>%
+  vip(aesthetics = list(fill = "hotpink", color = "lightblue"))
+
+grid.arrange(rf_vip, bt_vip)
 ```
 
 Knowing that some variables are more effective at predicting patient outcomes, we will elect to try out different random forest models with different numbers of predictors. We will test out all models that range from the 2 most useful predictors to the 6 most useful predictors to see if we can improve the efficacy of our models with simpler recipes. The reason we want to look into simplifying our models is that overly-complex models may be more likely to over fit as they begin to fit the noise of the training data instead of the underlying patterns which we look for [@simpler]. Having simpler models will also improve interpretability and in the medical setting may allow doctors to more easily diagnose patients with less tests necessary, which would both save time and cut costs. Since it was clear that random forest and boosted-gradient trees were superior previously, we will continue focusing on these two algorithms as we test our data on simpler models.
@@ -754,7 +762,7 @@ Knowing that some variables are more effective at predicting patient outcomes, w
 
 We will proceed with testing simpler models to evaluate if having less predictors in our recipe allows us to create models that allow us to better predict the outcome of patients. For each version of the model, we will output the best model for both random forest and gradient-boosted models and we will then further analyze the best models we get from each algorithm.
 
-### 2 Most Important Variables:
+### 2 Most Important Variables (Serum Creatinine and Ejection Fraction)
 ```{r, eval = FALSE}
 heartfailure_recipe2 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction, data = heartfailure_train) %>%
   step_dummy(all_nominal_predictors()) %>%   #creating dummy variables
@@ -879,7 +887,7 @@ heart_rf_roc_auc2 <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
 
 
 
-### 3 Most Important Variables:
+### 3 Most Important Variables (Serum Creatinine, Ejection Fraction, and Serum Sodium)
 
 ```{r, eval=FALSE}
 
@@ -1008,7 +1016,7 @@ heart_bt_roc_auc3 <- augment(heart_bt_fit3, new_data = heartfailure_test) %>%
 final_rf_model_test3 <- augment(heart_rf_fit3, heartfailure_test)
 ```
 
-### 4 Most Important Variables:
+### 4 Most Important Variables (Serum Creatinine, Ejection Fraction, Serum Sodium, and Age)
 
 ```{r, eval=FALSE}
 
@@ -1136,7 +1144,8 @@ heart_bt_roc_auc4 <- augment(heart_bt_fit4, new_data = heartfailure_test) %>%
 final_rf_model_test4 <- augment(heart_rf_fit4, heartfailure_test)
 ```
 
-### 5 Most Important Variables
+### 5 Most Important Variables (Serum Creatinine, Ejection Fraction, Serum Sodium, Age, and Creatinine Phosphokinase)
+
 ```{r, eval = FALSE}
 
 heartfailure_recipe5 <- recipe(DEATH_EVENT ~ serum_creatinine + ejection_fraction + serum_sodium + age + creatinine_phosphokinase, data = heartfailure_train) %>%
@@ -1262,7 +1271,7 @@ heart_bt_roc_auc5 <- augment(heart_bt_fit5, new_data = heartfailure_test) %>%
 final_rf_model_test5 <- augment(heart_rf_fit5, heartfailure_test)
 ```
 
-### 6 Most Important Variables
+### 6 Most Important Variables (Serum Creatinine, Ejection Fraction, Serum Sodium, Age, Creatinine Phosphokinase, and Platelets Count)
 
 ```{r, eval = FALSE}
 
@@ -1409,7 +1418,7 @@ tibble(Predictor_Number = variables_used,
   gt() %>%
   gt_theme_nytimes() %>%
   tab_header(title = "Performance of RF Models with Different Numbers of Best Variables") %>%
-  cols_label(ROC_AUC = "ROC AUC",
+  cols_label(ROC_AUC = "AUC-ROC",
     Improvement = "Improvement on Full Model",
     Predictor_Number = "Number of Best Predictors") 
 
@@ -1419,14 +1428,61 @@ tibble(Predictor_Number = variables_used,
   gt() %>%
   gt_theme_nytimes() %>%
   tab_header(title = "Performance of BT Models with Different Numbers of Best Variables") %>%
-  cols_label(ROC_AUC_bt = "ROC AUC",
+  cols_label(ROC_AUC_bt = "AUC-ROC",
     Improvement_bt = "Improvement on Full Model",
     Predictor_Number = "Number of Best Predictors") 
 round(rf_roc_auc, 4)
 ```
 
-It appears that for both random forest and boosted-gradient tree algorithms the best of the simplified models were the ones that used the two best predictors, which were Serum Creatinine and Ejection Fraction. Additionally, we see that these algorithms actually had substantially better ROC AUC values compared to the full models with values of 0.855 compared to 0.746 for random forest models and 0.826 compared to 0.734 for gradient-boosted tree models.
+It appears that for both random forest and boosted-gradient tree algorithms the best of the simplified models were the ones that used the two best predictors, which were Serum Creatinine and Ejection Fraction. Additionally, we see that these algorithms actually had substantially better AUC-ROC values compared to the full models with values of 0.855 compared to 0.746 for random forest models and 0.826 compared to 0.734 for gradient-boosted tree models. Although we again have to caution that accuracy is not necessarily the best judge of model success, especially considering the limited size of the data set for more easily interpretable results we will also evaluate the accuracy of the models and display their confusion matrix.
+
+```{r}
+tibble(Algorithm = c("Random Forest", "Gradient-Boosted Trees"),
+       ROC_AUC = c(heart_rf_roc_auc2$.estimate, heart_bt_roc_auc2$.estimate),
+       Accuracy = c(heart_rf_accuracy2$.estimate, heart_bt_accuracy2$.estimate)) %>%
+  gt() %>%
+  tab_header(title = "Performance of Algorithms with 2 Most Important Variables") %>%
+  cols_label(ROC_AUC = "AUC-ROC") %>%
+  gt_theme_nytimes()
+
+final_bt_model_test2 <- augment(heart_bt_fit2, heartfailure_test)
+```
+
+```{r, fig.cap= "Confusion Matrix for Random Forest (Left) and Gradient-Boosted Trees algorithm (Right) for models using top two variables (Serum Creatinine and Ejection Fraction)"}
+# Confusion Matrix for Random Forest Model
+rf2_cm <- conf_mat(final_rf_model_test2, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+
+# Confusion Matrix for Boosted-Gradient Trees Model
+bt2_cm <- conf_mat(final_bt_model_test2, truth = DEATH_EVENT, .pred_class) %>% autoplot(type = "heatmap")
+
+grid.arrange(rf2_cm, bt2_cm, ncol = 2)
+```
+
+From the confusion matrices above, we see that both the random forest and boosted-gradient tree algorithms performed equally well on the testing set. However, it is again important to emphasize that according to the AUC-ROC scores, the random forest is a slightly better model and we can further see this from the ROC curves displayed below.
+
+```{r, fig.cap="ROC curves of Random Forest (left) and Gradient-Boosted Trees algorithm (right) for models using top two variables (Serum Creatinine and Ejection Fraction)"}
+
+rf2_roc_curve <- augment(heart_rf_fit2, new_data = heartfailure_test) %>%
+  roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
+  autoplot()
+
+bt2_roc_curve <- augment(heart_bt_fit2, new_data = heartfailure_test) %>%
+  roc_curve(DEATH_EVENT, estimate = .pred_1) %>%
+  autoplot()
+
+grid.arrange(rf2_roc_curve, bt2_roc_curve, ncol = 2)
+```
 
 ## Conclusion
+In this study, we attempted to predict the chance that a patient would die from heart failure based off of patient data. We tried out seven different models including logistic regression, K-nearest neighbors (KNN), linear discriminant analysis (LDA), quadratic discriminant analysis (QDA),  elastic net, random forests, and gradient-boosted trees. In the end, we found that random forests and gradient-boosted trees were the top two performing models and we found that when we used all predictors, they performed relatively well with AUC-ROC scores of 0.746 and 0.734 respectively.
+
+After visualizing each respective variable importance plot, it became apparent that some variables, especially variables that were dummy-coded appeared to have very little importance in both random forest and gradient-boosted tree models so we elected to see if creating simpler models allowed for a more efficient model that was able to just as well. Interestingly, we found that some of our simpler models actually outperformed the full model, possibly because our full model had overfit the data and was measuring noise rather than underlying patterns. Our best model only required the use of our two most important variables serum creatinine and ejection fraction and presented AUC-ROC scores of 0.855 compared to 0.746 for random forest models and 0.826 compared to 0.734 for gradient-boosted trees models. Both models also presented 77% accuracy in predicting the outcome of patients.
+
+Following this analysis, there are many possible paths that we may be able to continue on, the most obvious one being gathering data from more patients. The data set was relatively small at 299 total observations and increasing the number of observations would perhaps allow our models to pick up even more information about heart failure. Additionally, our data was taken from a group of patients in Faisalabad, Pakistan, which means that patients may have shared other characteristics not accounted for in data so collecting patient data from other areas may also allow us to get a better understanding of heart failure deaths. We could also perhaps understand more about patients by asking them other questions such as whether they had any comorbidities at the time of patient data collection.
+
+Furthermore, continued avenues of research could perhaps look at not only predicting heart failure deaths but predicting patients who may develop heart failure or determining which stage of heart failure a patient is currently experiencing, which would potentially allow doctors to treat patients at high risk of developing heart failure before its onset or for the best course of treatment to be taken.
+
+Nevertheless, this study provides information that could be extremely useful for medical professionals in predicting the health outcomes of patients. We were able to gather that by using serum creatinine and ejection fraction, we could create models that possessed high efficacy in predicting the outcome of heart failure patients. Our models indicate that if a patient were at high risk of heart failure, medical professionals could simply run a blood test for serum creatinine and an echocardiogram for ejection fraction to help them understand the seriousness of patient condition, which could direct further actions. Overall, this means that the diagnostic process could be made not only more efficient, but more cost effective as well.
+
 
 ## References
