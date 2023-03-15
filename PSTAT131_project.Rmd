@@ -675,6 +675,22 @@ heart_train_results
 
 ## Fitting Testing Data to Models
 
+### Model Backgrounds
+
+Since both of our best models are tree-based models it may be worth explaining in a general way how our models work. As a basis of both our models are decision trees, which essentially identify features that if split on, will create groups that are as different from each other as possible.
+
+Random forests use decision trees as the basis of their model and work when we use a large number of individual decision trees nad improves upon the decision tree algorith [@rfimage]. These trees are each tasked with coming up with a prediction and in the end, the class with the most predictions among the individual trees becomes the model's prediction. The reason why random forest models work is because of the concept that "a large number of relatively uncorrelated models (trees) operating as a committee will outperform any of the individual constituent models" [@randomforest].
+
+<center>
+![](randomforestdiagram.png)
+</center>
+
+Gradient-boosted trees work by taking weak learners, which to come up wit ha strong learner. In the case of gradient-boosted trees, individual decision trees are the weak learners and they connect to each other sequentially such that each tree tries to minimize the previous trees error. Essentially, each new tree fits the residuals of the previous step which then combine to create a strong learner.
+
+<center>
+![](The-architecture-of-Gradient-Boosting-Decision-Tree.png)
+</center>
+
 Now that we have chosen random forests and boosted-gradient trees as our two best models, we will fit testing data to them and analyze their results. After fitting the testing data, we are then able to observe the AUC-ROC of the model on testing data. We see that as with the training set, our random forest model performed slightly better than our gradient-boosted trees model with an AUC-ROC value of 0.746 compared to 0.734 respectively. Conversely, we see that the accuracy of gradient-boosted trees (73.8%) is slightly higher than for random forests (70.5%).
 
 ```{r}
