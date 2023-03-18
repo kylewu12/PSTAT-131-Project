@@ -1,0 +1,21 @@
+- age: The age of the patients in the study
+
+-   anaemia: Patients were considered anemic (indicated by a 1) if their haematocrit levels were lower than 36%. (indicated by 0 if patient was not anemic).
+
+-   creatinine_phosphokinase: The amount of creatinine phosphokinase (CPK) in the blood. CPK is often released into the blood when muscle tissue gets damaged.
+
+-   diabetes: 1 if the patient has diabetes, 0 if patient does not have diabetes.
+
+-   ejection_fraction: Indicates the percentage of blood the left ventricle pumped out upon each contraction.
+
+-   platelets: Result of platelet count, which measure the number of platelets in the blood.
+
+-   serum_creatinine: Creatinine levels in the blood. High serum creatinine levels indicate that the kidneys may not be functioning properly.
+
+-   serum_sodium: Results of a blood sodium test. Low serum sodium levels may be an indicator of heart failure.
+
+-   sex: 1 if the patient is male, 0 if the patient is female.
+
+-   smoking: 1 if the patient smokes, 0 if the patient does not smoke.
+
+-   DEATH_EVENT: 1 if the patient died during the course of the study, 0 if the patient did not die during the course of the study.

@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/1016243/2a9d81c81d6a4e6f82a8f1b4b424b04a
+bundleId: https://api.rpubs.com/api/v1/document/1016243/2a9d81c81d6a4e6f82a8f1b4b424b04a
+url: http://rpubs.com/kylewu/1016243
+when: 1679087752.40986
+lastSyncTime: 1679087752.40988
